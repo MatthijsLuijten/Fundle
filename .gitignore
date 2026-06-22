@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+.pnp.*
+.yarn/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+*.db
+
+# Next.js
+apps/web/.next/
+apps/web/out/
+
+# Env & local config (never commit secrets or machine-specific settings)
+.env
+.env.local
+.env.*.local
+fundle.config.env
+apps/api/.env
+apps/api/.venv/
+apps/web/.env.local
+apps/web/node_modules/
+apps/web/.next/
+
+# IDE / OS
+.cursor/rules/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

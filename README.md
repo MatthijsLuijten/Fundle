@@ -1,12 +1,19 @@
-# Fundle
+<p align="center">
+  <img src="apps/web/public/logo.png" alt="Fundle" width="360">
+</p>
 
-Guess the Funda asking price in 5 tries. Each wrong guess unlocks more hints (area, energy label, photo, etc.).
+<p align="center">
+  <strong>Guess the Funda asking price in 5 tries.</strong><br>
+  Each wrong guess unlocks more hints — area, energy label, photos, and more.
+</p>
+
+---
 
 ## Stack
 
 - **Frontend:** Next.js (`apps/web`)
 - **Backend:** FastAPI + pyfunda (`apps/api`)
-- **Database:** PostgreSQL (Docker)
+- **Database:** SQLite (local dev), PostgreSQL (production via Neon)
 
 ## Daily use
 
@@ -59,13 +66,7 @@ From the project root: `npm install` (for `concurrently`). Daily dev: `npm run d
 
 **Debug:** set `DEBUG_FRESH=1` in `fundle.config.env` to reset guesses and reload the puzzle on every page refresh. Use `0` for normal daily persistence.
 
-### PostgreSQL (optional)
-
-```powershell
-docker compose up -d
-```
-
-Set `DATABASE_URL=postgresql+psycopg://fundle:fundle@localhost:5432/fundle` in `apps/api/.env`.
+Local database file: `apps/api/fundle.db` (SQLite, created on first run).
 
 ### Daily puzzle (live mode)
 

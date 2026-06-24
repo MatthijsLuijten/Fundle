@@ -79,42 +79,107 @@ def _is_valid_buy_listing(listing: Any, *, strict_existing: bool = False) -> boo
     return True
 
 
-# Nationwide search: random sort + page spreads picks across the full catalog.
-_MAX_RANDOM_PAGE = 100
-_SEARCH_ATTEMPTS = 6
+# Weighted price tiers — skew toward mid/high prices (more fun to guess).
+_PRICE_BUCKETS: list[tuple[int, int | None, float]] = [
+    (100_000, 450_000, 0.15),  # <450k
+    (450_000, 650_000, 0.25),
+    (650_000, 950_000, 0.30),
+    (950_000, None, 0.30),
+]
+_MAX_SEARCH_PAGE = 800
+_PAGE_ATTEMPTS = 8
+_DETAIL_PICK_LIMIT = 20
+_SEARCH_SORT = "newest"
 
 
-def _search_candidates(client: Any, *, sort: str, page: int) -> list[Any]:
-    results = client.search(category="buy", sort=sort, page=page)
+def _pick_price_bucket() -> tuple[int, int | None]:
+    ranges = [(lo, hi) for lo, hi, _ in _PRICE_BUCKETS]
+    weights = [w for _, _, w in _PRICE_BUCKETS]
+    return random.choices(ranges, weights=weights, k=1)[0]
+
+
+def _search_candidates(
+    client: Any,
+    *,
+    min_price: int | None,
+    max_price: int | None,
+    page: int,
+) -> list[Any]:
+    filters: dict[str, Any] = {
+        "category": "buy",
+        "sort": _SEARCH_SORT,
+        "page": page,
+    }
+    if min_price is not None:
+        filters["min_price"] = min_price
+    if max_price is not None:
+        filters["max_price"] = max_price
+    results = client.search(**filters)
     return [r for r in results if _is_valid_buy_listing(r)]
 
 
+def _pick_listing_detail(client: Any, candidates: list[Any]) -> Any | None:
+    shuffled = list(candidates)
+    random.shuffle(shuffled)
+    for pick in shuffled[: min(_DETAIL_PICK_LIMIT, len(shuffled))]:
+        try:
+            detail = client.listing(pick.global_id or pick.id)
+        except Exception:
+            continue
+        if _is_valid_buy_listing(detail, strict_existing=True) and detail.price.amount:
+            return detail
+    return None
+
+
+def _candidates_from_random_page(
+    client: Any,
+    *,
+    min_price: int,
+    max_price: int | None,
+) -> list[Any]:
+    upper = _MAX_SEARCH_PAGE
+    for _ in range(_PAGE_ATTEMPTS):
+        page = random.randint(0, upper)
+        candidates = _search_candidates(
+            client, min_price=min_price, max_price=max_price, page=page
+        )
+        if candidates:
+            return candidates
+        if page == 0:
+            break
+        upper = min(upper, max(0, page - 1))
+    return []
+
+
 def fetch_random_listing() -> Any:
+    """Pick a buy listing"""
     from funda import Funda
-    from funda.constants import SORT_OPTIONS
 
-    sorts = list(SORT_OPTIONS)
+    primary = _pick_price_bucket()
+    fallbacks = [(lo, hi) for lo, hi, _ in _PRICE_BUCKETS if (lo, hi) != primary]
+    random.shuffle(fallbacks)
+
     with Funda() as client:
-        candidates: list[Any] = []
-        for _ in range(_SEARCH_ATTEMPTS):
-            sort = random.choice(sorts)
-            page = random.randint(0, _MAX_RANDOM_PAGE)
-            candidates = _search_candidates(client, sort=sort, page=page)
-            if candidates:
-                break
+        for min_price, max_price in (primary, *fallbacks):
+            for _ in range(_PAGE_ATTEMPTS):
+                candidates = _candidates_from_random_page(
+                    client, min_price=min_price, max_price=max_price
+                )
+                if not candidates:
+                    continue
+                detail = _pick_listing_detail(client, candidates)
+                if detail is not None:
+                    return detail
 
-        if not candidates:
-            candidates = _search_candidates(client, sort="newest", page=0)
-        if not candidates:
-            raise RuntimeError("No buy listings found on Funda")
-
-        random.shuffle(candidates)
-        for pick in candidates[: min(20, len(candidates))]:
-            try:
-                detail = client.listing(pick.global_id or pick.id)
-            except Exception:
+        for _ in range(_PAGE_ATTEMPTS):
+            page = random.randint(0, _MAX_SEARCH_PAGE)
+            candidates = _search_candidates(
+                client, min_price=None, max_price=None, page=page
+            )
+            if not candidates:
                 continue
-            if _is_valid_buy_listing(detail, strict_existing=True) and detail.price.amount:
+            detail = _pick_listing_detail(client, candidates)
+            if detail is not None:
                 return detail
 
         raise RuntimeError("Could not load existing-build listing from search results")

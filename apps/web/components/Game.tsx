@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchToday, submitGuess } from "@/lib/api";
 import { fireWinConfetti } from "@/lib/confetti";
-import { parseAmount } from "@/lib/format";
+import { MIN_GUESS_AMOUNT, parseAmount } from "@/lib/format";
 import { recordGameResult } from "@/lib/stats";
 import {
   clearStoredSession,
@@ -79,7 +79,7 @@ export function Game() {
     if (!state || state.status !== "playing") return;
 
     const amount = parseAmount(input);
-    if (amount == null || amount < 1000) {
+    if (amount == null || amount < MIN_GUESS_AMOUNT) {
       setError("Voer een geldige prijs in (min. €1.000).");
       setInputShake(true);
       setTimeout(() => setInputShake(false), 400);

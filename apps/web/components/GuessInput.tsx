@@ -1,6 +1,10 @@
 "use client";
 
-import { formatInputDigits, parseAmount } from "@/lib/format";
+import {
+  formatInputDigits,
+  MIN_GUESS_AMOUNT,
+  parseAmount,
+} from "@/lib/format";
 import { Loader2 } from "lucide-react";
 
 type Props = {
@@ -24,10 +28,11 @@ export function GuessInput({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    onSubmit();
+    if (canSubmit) onSubmit();
   }
 
-  const hasValue = parseAmount(value) != null;
+  const amount = parseAmount(value);
+  const canSubmit = amount != null && amount >= MIN_GUESS_AMOUNT;
 
   return (
     <form
@@ -52,14 +57,14 @@ export function GuessInput({
             placeholder="450.000"
             value={value}
             onChange={(e) => handleChange(e.target.value)}
-            className="w-full rounded-xl border border-fundle-border bg-fundle-bg-elevated py-3.5 pl-9 pr-4 text-base font-medium tabular-nums outline-none transition placeholder:text-fundle-muted/50 focus:border-fundle-accent/40 focus:ring-2 focus:ring-fundle-accent-muted disabled:opacity-50"
-            disabled={submitting}
+            className="w-full rounded-xl border border-fundle-border bg-fundle-bg-elevated py-3.5 pl-9 pr-4 text-base font-medium tabular-nums outline-none transition placeholder:text-fundle-muted/50 focus:border-fundle-accent/40 focus:ring-2 focus:ring-fundle-accent-muted"
             autoComplete="off"
           />
         </div>
         <button
           type="submit"
-          disabled={submitting || !hasValue}
+          disabled={submitting || !canSubmit}
+          onMouseDown={(e) => e.preventDefault()}
           className="btn-primary shrink-0 px-6 py-3.5 text-sm"
         >
           {submitting ? (

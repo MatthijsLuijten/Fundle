@@ -3,6 +3,8 @@
 from datetime import date, datetime
 from typing import Any
 
+from app.puzzle_date import today_date
+
 MAX_HINT_LEVEL = 4
 MAX_GUESSES = 5
 
@@ -52,7 +54,7 @@ def format_listed_ago(
     except ValueError:
         return None
 
-    today = reference or date.today()
+    today = reference or today_date()
     published_date = published.date()
     days = (today - published_date).days
     if days < 0:

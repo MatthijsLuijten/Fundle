@@ -70,6 +70,8 @@ Local database file: `apps/api/fundle.db` (SQLite, created on first run).
 
 ### Daily puzzle
 
+Puzzle day boundaries use **Europe/Amsterdam** (midnight NL time), not UTC.
+
 Refresh today's puzzle from Funda:
 
 ```powershell
@@ -77,6 +79,13 @@ cd apps\api
 .\.venv\Scripts\Activate.ps1
 python ..\..\scripts\build_daily_puzzle.py
 ```
+
+**Production (Render):** add a **Cron Job** that runs daily at `5 0 * * *` with timezone **Europe/Amsterdam**:
+
+- **Command:** `python ../../scripts/build_daily_puzzle.py`
+- **Root directory:** `apps/api` (same as the web service)
+
+This pre-builds the puzzle so the first visitor does not wait on Funda.
 
 ## Project layout
 

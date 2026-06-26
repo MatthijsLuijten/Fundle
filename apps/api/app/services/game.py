@@ -17,6 +17,7 @@ from app.services.hints import (
     hints_for_level,
     new_hints_for_level,
 )
+from app.puzzle_date import today_date
 from app.services.funda_url import funda_listing_url
 from app.services.puzzle_builder import ensure_puzzle_for_date
 
@@ -26,10 +27,6 @@ TOLERANCE_PCT = 0.02  # within 2% counts as correct
 def puzzle_number_for_date(puzzle_date: date) -> int:
     epoch = date(2026, 1, 1)
     return (puzzle_date - epoch).days + 1
-
-
-def today_date() -> date:
-    return date.today()
 
 
 PHOTOS_PER_GUESS = 2

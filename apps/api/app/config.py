@@ -7,7 +7,6 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+pysqlite:///./fundle.db"
     cors_origins: str = "http://localhost:3000"
     debug_fresh_session: bool = False
-    force_puzzle_rebuild: bool = False
 
     @property
     def cors_origin_list(self) -> list[str]:

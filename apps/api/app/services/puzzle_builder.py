@@ -66,7 +66,8 @@ _SEARCH_SORT = "newest"
 
 # Default price buckets. Format: min:max:weight (semicolon-separated).
 # Max can be empty for uncapped. Weights must sum to 1.0.
-# Weights: 20% 150k–400k, 30% 400k–600k, 30% 600k–900k, 15% 900k–1.4M, 5% >1.4M
+# Boundaries are exclusive on the upper end: 150000:400000 means [150000, 400000).
+# Weights: 20% [150k, 400k), 30% [400k, 600k), 30% [600k, 900k), 15% [900k, 1.4M), 5% [1.4M, ∞)
 _DEFAULT_PRICE_BUCKETS = "150000:400000:0.20;400000:600000:0.30;600000:900000:0.30;900000:1400000:0.15;1400000::0.05"
 
 
@@ -74,6 +75,7 @@ def _parse_price_buckets() -> list[tuple[int, int | None, float]]:
     """Parse PRICE_BUCKETS env var. Format: min:max:weight (semicolon-separated).
     Max can be empty for uncapped. Returns [(min, max, weight), ...].
     Normalizes weights if they don't sum to 1.0 and logs a warning.
+    Detects overlapping partitions and gaps.
     """
     config = os.getenv("PRICE_BUCKETS", _DEFAULT_PRICE_BUCKETS)
 
@@ -114,6 +116,8 @@ def _parse_price_buckets() -> list[tuple[int, int | None, float]]:
         print(msg, file=sys.stderr, flush=True)
         return _parse_price_buckets_from_string(_DEFAULT_PRICE_BUCKETS)
 
+    _check_bucket_partitions(buckets)
+
     if abs(total_weight - 1.0) > 0.001:
         msg = (
             f"⚠️  PRICE_BUCKETS weights sum to {total_weight:.3f}, not 1.0. "
@@ -124,6 +128,52 @@ def _parse_price_buckets() -> list[tuple[int, int | None, float]]:
         buckets = [(lo, hi, w / total_weight) for lo, hi, w in buckets]
 
     return buckets
+
+
+def _check_bucket_partitions(buckets: list[tuple[int, int | None, float]]) -> None:
+    """Warn if price buckets overlap or have gaps."""
+    if len(buckets) < 2:
+        return
+
+    capped_buckets = [(lo, hi) for lo, hi, _ in buckets if hi is not None]
+    uncapped_buckets = [(lo, hi) for lo, hi, _ in buckets if hi is None]
+
+    for i, (lo1, hi1) in enumerate(capped_buckets):
+        for lo2, hi2 in capped_buckets[i + 1 :]:
+            if not (hi1 <= lo2 or hi2 <= lo1):
+                msg = (
+                    f"⚠️  PRICE_BUCKETS overlap detected: "
+                    f"[{lo1}, {hi1}) and [{lo2}, {hi2}). "
+                    "Boundaries are exclusive on upper end (e.g., 150000:400000 means [150000, 400000))."
+                )
+                logger.warning(msg)
+                print(msg, file=sys.stderr, flush=True)
+
+    sorted_buckets = sorted(capped_buckets)
+    for i in range(len(sorted_buckets) - 1):
+        _, hi1 = sorted_buckets[i]
+        lo2, _ = sorted_buckets[i + 1]
+        if hi1 != lo2:
+            msg = (
+                f"⚠️  PRICE_BUCKETS gap detected: "
+                f"bucket ends at {hi1}, next starts at {lo2}. "
+                f"Gap: [{hi1}, {lo2})."
+            )
+            logger.warning(msg)
+            print(msg, file=sys.stderr, flush=True)
+
+    if capped_buckets and uncapped_buckets:
+        last_capped_hi = sorted_buckets[-1][1]
+        first_uncapped_lo = uncapped_buckets[0][0]
+        if last_capped_hi != first_uncapped_lo:
+            msg = (
+                f"⚠️  PRICE_BUCKETS gap at uncapped boundary: "
+                f"last capped bucket ends at {last_capped_hi}, "
+                f"uncapped starts at {first_uncapped_lo}. "
+                f"Gap: [{last_capped_hi}, {first_uncapped_lo})."
+            )
+            logger.warning(msg)
+            print(msg, file=sys.stderr, flush=True)
 
 
 def _parse_price_buckets_from_string(

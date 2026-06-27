@@ -6,8 +6,7 @@
     "config:sync": "node scripts/sync_config.js",
     "predev": "node scripts/check-dev.js",
     "dev": "npm run config:sync && node scripts/dev.js",
-    "start": "npm run dev",
-    "clear:db": "cd apps/api && source .venv/bin/activate && python ../../scripts/clear_db.py"
+    "start": "npm run dev"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

@@ -11,7 +11,7 @@ CONFIG = ROOT / "fundle.config.env"
 API_ENV = ROOT / "apps" / "api" / ".env"
 WEB_ENV = ROOT / "apps" / "web" / ".env.local"
 
-REQUIRED = ("DEBUG_FRESH", "DATABASE_URL", "CORS_ORIGINS", "NEXT_PUBLIC_API_URL")
+REQUIRED = ("DEBUG_FRESH", "DATABASE_URL", "CORS_ORIGINS", "NEXT_PUBLIC_API_URL", "PRICE_BUCKETS")
 
 
 def parse_env_file(path: Path) -> dict[str, str]:
@@ -47,6 +47,7 @@ def write_api_env(cfg: dict[str, str]) -> None:
 DATABASE_URL={cfg["DATABASE_URL"]}
 CORS_ORIGINS={cfg["CORS_ORIGINS"]}
 DEBUG_FRESH_SESSION={cfg["DEBUG_FRESH"]}
+PRICE_BUCKETS={cfg["PRICE_BUCKETS"]}
 """
     API_ENV.write_text(content, encoding="utf-8")
 

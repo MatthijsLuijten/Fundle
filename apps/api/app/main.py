@@ -40,7 +40,7 @@ async def lifespan(_app: FastAPI):
                 )
     db = SessionLocal()
     try:
-        force = settings.force_puzzle_rebuild
+        force = settings.debug_fresh_session
         puzzle_date = today_date()
         puzzle = ensure_puzzle_for_date(db, puzzle_date, force=force)
         action = "rebuilt" if force else "reusing"

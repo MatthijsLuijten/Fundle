@@ -30,7 +30,7 @@ apps/web/node_modules/
 apps/web/.next/
 
 # IDE / OS
-.cursor/rules/
+.cursor/*
 .idea/
 .vscode/
 .DS_Store

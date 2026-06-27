@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import DailyPuzzle, GameSession
@@ -226,7 +226,24 @@ def evaluate_guess(answer: int, guess: int) -> tuple[bool, str | None, int]:
     return False, direction, abs(delta)
 
 
-def result_payload(puzzle: DailyPuzzle, won: bool) -> dict:
+def community_stats(db: Session, puzzle_date: date) -> dict[str, int]:
+    finished = db.scalar(
+        select(func.count()).where(
+            GameSession.puzzle_date == puzzle_date,
+            GameSession.status.in_(("won", "lost")),
+        )
+    ) or 0
+    won = db.scalar(
+        select(func.count()).where(
+            GameSession.puzzle_date == puzzle_date,
+            GameSession.status == "won",
+        )
+    ) or 0
+    return {"finished": finished, "won": won}
+
+
+def result_payload(db: Session, puzzle: DailyPuzzle, won: bool) -> dict:
+    stats = community_stats(db, puzzle.puzzle_date)
     return {
         "won": won,
         "answer_eur": puzzle.answer_eur,
@@ -234,6 +251,8 @@ def result_payload(puzzle: DailyPuzzle, won: bool) -> dict:
         "url": funda_listing_url(puzzle.payload),
         "city": puzzle.payload.get("city"),
         "listed_ago": format_listed_ago(puzzle.payload.get("publication_date")),
+        "community_finished": stats["finished"],
+        "community_won": stats["won"],
     }
 
 
@@ -258,7 +277,7 @@ def session_state(
 
     result = None
     if session.status in ("won", "lost"):
-        result = result_payload(puzzle, session.status == "won")
+        result = result_payload(db, puzzle, session.status == "won")
 
     hint_level = (
         MAX_HINT_LEVEL

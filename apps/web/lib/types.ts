@@ -10,6 +10,8 @@ export type GameResult = {
   url: string | null;
   city: string | null;
   listed_ago: string | null;
+  community_finished: number;
+  community_won: number;
 };
 
 export type Hints = Record<string, string | number>;

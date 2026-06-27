@@ -20,7 +20,6 @@ from app.services.hints import listing_to_payload
 
 logger = logging.getLogger(__name__)
 
-# Ensure .env is loaded so os.getenv() works for PRICE_BUCKETS
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
 # Funda search results only include ~5 thumbnail ids; detail has the full gallery.

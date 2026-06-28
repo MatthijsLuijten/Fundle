@@ -13,7 +13,7 @@ FastAPI/Render backend (the free-tier cold-start culprit) and Neon Postgres to a
 ## Architecture
 
 ```
-GitHub Actions (cron 23:05 UTC ≈ 00:05–01:05 Amsterdam, + manual dispatch)
+GitHub Actions (cron 23:00 UTC = 00:00 Amsterdam winter / 01:00 summer, + manual dispatch)
   → scripts/build_daily_puzzle.py  (pyfunda → obfuscated answer + payload)
   → UPSERT daily_puzzles in Supabase   (service_role key, idempotent)
 

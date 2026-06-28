@@ -58,7 +58,7 @@ uv run --project apps/api python scripts/build_daily_puzzle.py --force   # rebui
 ```
 
 **Production:** the [`build-puzzle`](.github/workflows/build-puzzle.yml) GitHub
-Action runs daily at `23:05 UTC` (just after Amsterdam midnight) and upserts the
+Action runs daily at `23:00 UTC` (Amsterdam midnight in winter) and upserts the
 puzzle into Supabase. Trigger it manually from the Actions tab (`workflow_dispatch`)
 to seed/backfill. No server, no cron host needed.
 

@@ -2,9 +2,9 @@ name: Build daily puzzle
 
 on:
   schedule:
-    # 23:05 UTC = 00:05 (winter) / 01:05 (summer) Europe/Amsterdam — always just
-    # after local midnight, so today_date() resolves to the new Amsterdam day.
-    - cron: "5 23 * * *"
+    # 23:00 UTC = 00:00 (winter) / 01:00 (summer) Europe/Amsterdam — at local
+    # midnight in CET; always after the Amsterdam day boundary so today_date() is correct.
+    - cron: "0 23 * * *"
   workflow_dispatch:
     inputs:
       date:

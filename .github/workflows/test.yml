@@ -32,7 +32,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd apps/api
-          uv pip install -e ".[dev]"
+          uv sync --dev
 
       - name: Lint with Ruff
         run: |

@@ -37,16 +37,80 @@ enough that it isn't readable in the network tab. Acceptable for a casual game.
 
 ### 1. Supabase (new account if you don't have one) — free
 
-1. Create an account at https://supabase.com and a **new project** (any region;
-   pick EU for Dutch users). Free tier is ample: 500 MB Postgres.
-2. In the project's **SQL editor**, run the contents of
-   [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql).
-   This creates `daily_puzzles`, `puzzle_stats`, RLS policies, and the
-   `record_result` RPC.
-3. Go to **Project Settings → API** and copy:
-   - **Project URL** → used as both `SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_URL`
-   - **`anon` public key** → `NEXT_PUBLIC_SUPABASE_ANON_KEY` (safe in the browser)
-   - **`service_role` secret key** → `SUPABASE_SERVICE_ROLE_KEY` (secret — Action only)
+> New to Supabase? It's a hosted Postgres database with an auto-generated REST
+> API and a web dashboard. You won't touch a terminal here — everything is
+> clicks + one paste of SQL.
+
+#### 1.1 Create the project
+
+1. Go to https://supabase.com → **Start your project** and sign in (GitHub login
+   is easiest).
+2. Click **New project**. Pick your org, give it a name (e.g. `fundle`), and
+   **set a database password** (save it in a password manager — you won't need
+   it for this migration, but Supabase requires one).
+3. Choose a **Region** close to your players (e.g. *West EU (Ireland)* or
+   *Central EU (Frankfurt)* for the Netherlands).
+4. Click **Create new project** and wait ~2 minutes while it provisions. Free
+   tier is ample here: 500 MB Postgres, no credit card.
+
+#### 1.2 Run the schema — step by step
+
+This creates the two tables, the read policies, and the stats function.
+[`supabase/schema.sql`](supabase/schema.sql) is just a plain SQL file kept in the
+repo as the source of truth for the database structure — you run it once by hand
+in the dashboard (we're not using the Supabase CLI migration pipeline).
+
+1. In the left sidebar of your project, click the **SQL Editor** icon
+   (looks like `</>` / "SQL"). Open it.
+2. Click **+ New query** (top of the editor) — you get an empty SQL tab.
+3. Open the file [`supabase/schema.sql`](supabase/schema.sql) from this repo,
+   **select all** (Cmd/Ctrl+A), **copy**, and **paste** it into the empty query
+   tab in Supabase.
+4. Click **Run** (bottom-right of the editor, or press **Cmd/Ctrl + Enter**).
+5. You should see **"Success. No rows returned"** at the bottom. That's correct —
+   the script creates structure, it doesn't return data. (Re-running it later is
+   safe: it uses `create table if not exists` and `create or replace`.)
+6. Verify it worked: click the **Table Editor** icon in the sidebar — you should
+   now see two tables, **`daily_puzzles`** and **`puzzle_stats`** (both empty for
+   now; the build step in §"Cutover" fills them).
+
+**What the script set up (plain English):**
+
+- **`daily_puzzles`** — one row per day: the puzzle number, the listing payload
+  (hints + photo URLs), and the obfuscated answer. Written only by the build job.
+- **`puzzle_stats`** — one row per day of aggregate community numbers (plays,
+  solves, guess distribution). Powers the "X% solved" panel.
+- **RLS policies** — *Row Level Security*. By default a Supabase table with RLS
+  enabled is **locked: nobody can read or write it through the public API**. A
+  "policy" is a rule that re-opens specific access. Our script enables RLS on
+  both tables and then adds two read-only policies (`using (true)` = "anyone may
+  *select* every row"). It deliberately adds **no insert/update/delete policy**,
+  so the public `anon` key in the browser can *read* puzzles and stats but can
+  **never tamper** with them. The only way to write stats is the controlled
+  function below.
+- **`record_result()` RPC** — a small database function the browser calls to
+  bump the stats counters. It runs as `security definer` (with the table owner's
+  rights), so it can update `puzzle_stats` even though the browser itself has no
+  write access. That's the one tightly-scoped write path. The daily puzzle is
+  written separately by the build job using the secret `service_role` key, which
+  bypasses RLS entirely.
+
+> Tip: if you ever need to start clean, paste and run
+> `drop table if exists puzzle_stats; drop table if exists daily_puzzles;` then
+> re-run `supabase/schema.sql`.
+
+#### 1.3 Copy your API keys
+
+1. In the sidebar, open **Project Settings** (the gear icon) → **API**.
+2. Copy these three values (you'll paste them into GitHub and Vercel below):
+   - **Project URL** (e.g. `https://abcdxyz.supabase.co`) → used as **both**
+     `SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_URL`.
+   - **`anon` `public` key** (under "Project API keys") →
+     `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Safe to expose in the browser — Row Level
+     Security only allows reads + the `record_result` function.
+   - **`service_role` `secret` key** → `SUPABASE_SERVICE_ROLE_KEY`. **Keep this
+     secret** — it bypasses RLS. It goes **only** into GitHub Actions secrets and
+     your local `fundle.config.env`, never into the frontend.
 
 > The daily Action writing a row keeps the project active, so the free-tier
 > 7-day inactivity pause never triggers.
@@ -108,7 +172,7 @@ redeploying those services.
 
 ## What changed in the repo
 
-- **Added:** `supabase/migrations/0001_init.sql`, `.github/workflows/build-puzzle.yml`,
+- **Added:** `supabase/schema.sql`, `.github/workflows/build-puzzle.yml`,
   `apps/api/app/obfuscate.py`, `apps/web/lib/{engine,supabase,gameStore}.ts`,
   `apps/web/components/CommunityStats.tsx`, parity fixtures + tests.
 - **Changed:** `scripts/build_daily_puzzle.py` (publishes to Supabase),

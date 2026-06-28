@@ -68,7 +68,7 @@ to seed/backfill. No server, no cron host needed.
 apps/api/     pyfunda scraping + puzzle builder (+ retained game.py for parity fixtures)
 apps/web/     Next.js UI + client-side game engine (lib/engine.ts)
 scripts/      build_daily_puzzle.py (Supabase publish), gen_parity_fixtures.py
-supabase/     SQL migrations (schema, RLS, stats RPC)
+supabase/     schema.sql (tables, RLS, stats RPC) — run once in the dashboard
 ```
 
 ## Testing

@@ -29,6 +29,7 @@ const config: Config = {
           "accent-hover": "var(--fundle-accent-hover)",
           "accent-muted": "var(--fundle-accent-muted)",
           "accent-fg": "var(--fundle-accent-fg)",
+          orange: "var(--fundle-orange)",
         },
       },
       boxShadow: {

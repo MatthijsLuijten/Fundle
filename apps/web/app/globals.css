@@ -16,6 +16,7 @@
   --fundle-accent-hover: #0d9488;
   --fundle-accent-muted: rgba(15, 118, 110, 0.1);
   --fundle-accent-fg: #ffffff;
+  --fundle-orange: #ff9b21;
   --fundle-shadow: 0 1px 2px rgba(15, 23, 42, 0.04),
     0 4px 20px rgba(15, 23, 42, 0.06);
   --fundle-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
@@ -27,9 +28,8 @@ body {
   background-image:
     linear-gradient(
       180deg,
-      #fafbfc 0%,
-      var(--fundle-bg) 45%,
-      #eceef2 100%
+      #e9f6ff 0%,
+      #ffffff 35%
     );
 }
 
@@ -65,7 +65,7 @@ input[type="number"]::-webkit-outer-spin-button {
   }
 
   .app-title-fund {
-    color: #ca8a04;
+    color: #ffffff;
   }
 
   .app-title-le {

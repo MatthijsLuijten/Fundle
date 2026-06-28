@@ -12,7 +12,7 @@ type Props = {
 
 export function AppHeader({ puzzleNumber, subtitle, onHelpClick }: Props) {
   return (
-    <header className="border-b border-fundle-border bg-fundle-bg-elevated/90 backdrop-blur-xl">
+    <header className="border-b border-fundle-border bg-[var(--fundle-orange)]">
       <div className="relative mx-auto w-full max-w-md px-4 pb-4 pt-5">
         <div className="flex items-center gap-3 pr-12">
           <Image
@@ -26,13 +26,13 @@ export function AppHeader({ puzzleNumber, subtitle, onHelpClick }: Props) {
           />
           <div className="min-w-0">
             <h1 className="app-title leading-none">
-              <span className="app-title-fund">Fund</span>
+              <span className="app-title-fund">fund</span>
               <span className="app-title-le">le</span>
             </h1>
             {(puzzleNumber != null || subtitle) && (
-              <p className="mt-0.5 text-xs text-fundle-muted">
+              <p className="mt-0.5 text-xs text-white/80">
                 {puzzleNumber != null && (
-                  <span className="font-medium text-fundle-text/70">
+                  <span className="font-semibold text-white">
                     #{puzzleNumber}
                   </span>
                 )}
@@ -49,7 +49,7 @@ export function AppHeader({ puzzleNumber, subtitle, onHelpClick }: Props) {
         <button
           type="button"
           onClick={onHelpClick}
-          className="btn-ghost absolute right-4 top-5 flex h-10 w-10 items-center justify-center !p-0 text-fundle-muted hover:text-fundle-text"
+          className="absolute right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl border border-white/30 bg-white/15 text-white shadow-sm backdrop-blur-sm transition hover:bg-white/25 active:scale-[0.98]"
           aria-label="Hoe werkt het?"
         >
           <HelpCircle className="h-4 w-4" />

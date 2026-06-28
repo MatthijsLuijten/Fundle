@@ -1,10 +1,12 @@
 """Tests for price bucket partition validation."""
 
-import io
-import sys
-from unittest.mock import patch
+from unittest.mock import MagicMock
 
-from app.services.puzzle_builder import _parse_price_buckets_from_string, _check_bucket_partitions
+from app.services.puzzle_builder import (
+    _check_bucket_partitions,
+    _parse_price_buckets_from_string,
+    _pick_listing_detail,
+)
 
 
 class TestPricePartitions:
@@ -114,3 +116,105 @@ class TestPricePartitions:
         # The condition: NOT (300 <= 200 or 400 <= 100) = NOT (False or False) = True (overlap!) ✓
         _check_bucket_partitions(buckets)
         # This would log a warning in real usage
+
+
+class TestListingDetailFiltering:
+    """Tests for price boundary filtering in _pick_listing_detail."""
+
+    def _make_mock_listing(self, amount):
+        """Create a mock listing with the given price amount."""
+        listing = MagicMock()
+        listing.price.amount = amount
+        listing.price.is_auction = False
+        listing.offering_type = "buy"
+        listing.city = "Amsterdam"
+        listing.property_details.construction_type = "existing"
+        return listing
+
+    def test_price_at_lower_bound_included(self):
+        """Listing with price equal to min_price is included (lower bound inclusive)."""
+        client = MagicMock()
+        candidate = MagicMock()
+        candidate.global_id = "123"
+
+        listing = self._make_mock_listing(amount=150000)
+        client.listing.return_value = listing
+
+        result = _pick_listing_detail(client, [candidate], min_price=150000, max_price=400000)
+        assert result is not None
+        assert result.price.amount == 150000
+
+    def test_price_at_upper_bound_excluded(self):
+        """Listing with price equal to max_price is excluded (upper bound exclusive)."""
+        client = MagicMock()
+        candidate = MagicMock()
+        candidate.global_id = "123"
+
+        listing = self._make_mock_listing(amount=400000)
+        client.listing.return_value = listing
+
+        result = _pick_listing_detail(client, [candidate], min_price=150000, max_price=400000)
+        assert result is None, "Price at upper boundary should be excluded"
+
+    def test_price_just_below_upper_bound_included(self):
+        """Listing with price just below max_price is included."""
+        client = MagicMock()
+        candidate = MagicMock()
+        candidate.global_id = "123"
+
+        listing = self._make_mock_listing(amount=399999)
+        client.listing.return_value = listing
+
+        result = _pick_listing_detail(client, [candidate], min_price=150000, max_price=400000)
+        assert result is not None
+        assert result.price.amount == 399999
+
+    def test_price_below_lower_bound_excluded(self):
+        """Listing with price below min_price is excluded."""
+        client = MagicMock()
+        candidate = MagicMock()
+        candidate.global_id = "123"
+
+        listing = self._make_mock_listing(amount=149999)
+        client.listing.return_value = listing
+
+        result = _pick_listing_detail(client, [candidate], min_price=150000, max_price=400000)
+        assert result is None
+
+    def test_price_above_upper_bound_excluded(self):
+        """Listing with price above max_price is excluded."""
+        client = MagicMock()
+        candidate = MagicMock()
+        candidate.global_id = "123"
+
+        listing = self._make_mock_listing(amount=400001)
+        client.listing.return_value = listing
+
+        result = _pick_listing_detail(client, [candidate], min_price=150000, max_price=400000)
+        assert result is None
+
+    def test_price_in_valid_range(self):
+        """Listing with price in the middle of range is included."""
+        client = MagicMock()
+        candidate = MagicMock()
+        candidate.global_id = "123"
+
+        listing = self._make_mock_listing(amount=275000)
+        client.listing.return_value = listing
+
+        result = _pick_listing_detail(client, [candidate], min_price=150000, max_price=400000)
+        assert result is not None
+        assert result.price.amount == 275000
+
+    def test_uncapped_max_price(self):
+        """Listing can be accepted with None max_price (uncapped)."""
+        client = MagicMock()
+        candidate = MagicMock()
+        candidate.global_id = "123"
+
+        listing = self._make_mock_listing(amount=5000000)
+        client.listing.return_value = listing
+
+        result = _pick_listing_detail(client, [candidate], min_price=1400000, max_price=None)
+        assert result is not None
+        assert result.price.amount == 5000000

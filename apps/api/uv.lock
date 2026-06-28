@@ -157,7 +157,7 @@ wheels = [
 ]
 
 [[package]]
-name = "fundle-api"
+name = "fundle"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

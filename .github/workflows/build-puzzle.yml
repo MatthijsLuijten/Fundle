@@ -2,8 +2,10 @@ name: Build daily puzzle
 
 on:
   schedule:
-    # 23:00 UTC = 00:00 (winter) / 01:00 (summer) Europe/Amsterdam — at local
-    # midnight in CET; always after the Amsterdam day boundary so today_date() is correct.
+    # GitHub cron is UTC-only. CET = UTC+1 and CEST = UTC+2, so Amsterdam
+    # midnight is 23:00 UTC in winter and 22:00 UTC in summer. Run both slots
+    # and skip unless the local hour is 00 (see "Skip if not Amsterdam midnight").
+    - cron: "0 22 * * *"
     - cron: "0 23 * * *"
   workflow_dispatch:
     inputs:
@@ -23,15 +25,34 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Should run
+        id: should_run
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=true" >> "$GITHUB_OUTPUT"
+          else
+            hour=$(TZ=Europe/Amsterdam date +%H)
+            if [ "$hour" = "00" ]; then
+              echo "value=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "value=false" >> "$GITHUB_OUTPUT"
+              echo "Not midnight in Europe/Amsterdam (local hour=$hour), skipping scheduled run."
+            fi
+          fi
+
       - uses: actions/checkout@v4
+        if: steps.should_run.outputs.value == 'true'
 
       - name: Install uv
+        if: steps.should_run.outputs.value == 'true'
         uses: astral-sh/setup-uv@v4
 
       - name: Install dependencies
+        if: steps.should_run.outputs.value == 'true'
         run: uv sync --project apps/api
 
       - name: Build and publish puzzle
+        if: steps.should_run.outputs.value == 'true'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

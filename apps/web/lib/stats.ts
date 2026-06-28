@@ -1,8 +1,7 @@
 export type PlayerStats = {
   gamesPlayed: number;
-  gamesWon: number;
   currentStreak: number;
-  maxStreak: number;
+  currentWinStreak: number;
   lastRecordedDate: string | null;
 };
 
@@ -10,11 +9,12 @@ const STATS_KEY = "fundle_stats";
 
 const DEFAULT_STATS: PlayerStats = {
   gamesPlayed: 0,
-  gamesWon: 0,
   currentStreak: 0,
-  maxStreak: 0,
+  currentWinStreak: 0,
   lastRecordedDate: null,
 };
+
+const STATS_UPDATED_EVENT = "fundle-stats-updated";
 
 export function getStats(): PlayerStats {
   if (typeof window === "undefined") return DEFAULT_STATS;
@@ -44,28 +44,27 @@ export function recordGameResult(
   const stats = getStats();
   if (stats.lastRecordedDate === puzzleDate) return stats;
 
+  const continuedPlay =
+    stats.lastRecordedDate != null &&
+    isYesterday(stats.lastRecordedDate, puzzleDate);
+
   const next: PlayerStats = {
     ...stats,
     gamesPlayed: stats.gamesPlayed + 1,
-    gamesWon: stats.gamesWon + (won ? 1 : 0),
     lastRecordedDate: puzzleDate,
+    currentStreak: continuedPlay ? stats.currentStreak + 1 : 1,
   };
 
   if (won) {
-    const continued =
-      stats.lastRecordedDate != null &&
-      isYesterday(stats.lastRecordedDate, puzzleDate);
-    next.currentStreak = continued ? stats.currentStreak + 1 : 1;
+    const continuedWin = continuedPlay && stats.currentWinStreak > 0;
+    next.currentWinStreak = continuedWin ? stats.currentWinStreak + 1 : 1;
   } else {
-    next.currentStreak = 0;
+    next.currentWinStreak = 0;
   }
 
-  next.maxStreak = Math.max(next.maxStreak, next.currentStreak);
   saveStats(next);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(STATS_UPDATED_EVENT));
+  }
   return next;
-}
-
-export function winRate(stats: PlayerStats): number | null {
-  if (stats.gamesPlayed === 0) return null;
-  return Math.round((stats.gamesWon / stats.gamesPlayed) * 100);
 }

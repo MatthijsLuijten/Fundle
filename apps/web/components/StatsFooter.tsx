@@ -2,14 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { getTimeUntilNextPuzzle } from "@/lib/countdown";
-import { getStats, winRate, type PlayerStats } from "@/lib/stats";
+import { getStats, type PlayerStats } from "@/lib/stats";
 
 export function StatsFooter() {
   const [stats, setStats] = useState<PlayerStats | null>(null);
   const [countdownLabel, setCountdownLabel] = useState<string | null>(null);
 
   useEffect(() => {
-    setStats(getStats());
+    const refresh = () => setStats(getStats());
+    refresh();
+    window.addEventListener("fundle-stats-updated", refresh);
+    return () => window.removeEventListener("fundle-stats-updated", refresh);
   }, []);
 
   useEffect(() => {
@@ -19,16 +22,15 @@ export function StatsFooter() {
     return () => clearInterval(id);
   }, []);
 
-  const rate = stats ? winRate(stats) : null;
   const hasStats = stats != null && stats.gamesPlayed > 0;
 
   return (
     <p className="text-xs text-fundle-muted">
       {hasStats && (
         <>
-          Reeks {stats.currentStreak}
-          {stats.maxStreak > 0 && ` · Best ${stats.maxStreak}`}
-          {rate != null && ` · ${rate}% gewonnen`}
+          🔥 streak {stats.currentStreak}
+          {stats.currentWinStreak > 0 &&
+            ` · 🎯 ${stats.currentWinStreak} op rij`}
           {" · "}
         </>
       )}

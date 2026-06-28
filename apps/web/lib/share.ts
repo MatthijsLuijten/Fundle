@@ -47,11 +47,12 @@ export function buildShareText(state: PuzzleState): string {
   if (city) lines.push(city);
   lines.push(squares);
 
-  if (status === "won") {
-    const streak = getStats().currentStreak;
-    if (streak > 0) {
-      lines.push(`🔥 Reeks: ${streak}`);
-    }
+  const { currentStreak, currentWinStreak } = getStats();
+  if (currentStreak > 0) {
+    lines.push(`🔥 streak: ${currentStreak}`);
+  }
+  if (currentWinStreak > 0) {
+    lines.push(`🎯 ${currentWinStreak} op rij`);
   }
 
   const url =

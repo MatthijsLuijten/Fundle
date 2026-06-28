@@ -49,10 +49,10 @@ export function buildShareText(state: PuzzleState): string {
 
   const { currentStreak, currentWinStreak } = getStats();
   if (currentStreak > 0) {
-    lines.push(`🔥 streak: ${currentStreak}`);
+    lines.push(`🔥 speelstreak: ${currentStreak}`);
   }
   if (currentWinStreak > 0) {
-    lines.push(`🎯 ${currentWinStreak} op rij`);
+    lines.push(`🎯 winstreak: ${currentWinStreak}`);
   }
 
   const url =

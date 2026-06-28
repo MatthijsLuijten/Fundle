@@ -125,6 +125,10 @@ def expected_state(sim: dict) -> dict:
             "url": funda_listing_url(PAYLOAD),
             "city": PAYLOAD.get("city"),
             "listed_ago": format_listed_ago(PAYLOAD.get("publication_date"), reference=PUZZLE_DATE),
+            # Community counts are injected client-side from Supabase, not by the
+            # engine; the engine emits zeros (see engine.ts resultPayload).
+            "community_finished": 0,
+            "community_won": 0,
         }
 
     return {

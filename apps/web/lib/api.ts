@@ -4,11 +4,29 @@
 
 import { computeState, decodeAnswer, evaluateGuess, MAX_GUESSES, type Puzzle } from "./engine";
 import { clearGame, defaultGame, loadGame, saveGame } from "./gameStore";
-import { fetchRandomPuzzleRow, fetchTodayPuzzleRow, recordResult, type PuzzleRow } from "./supabase";
+import { fetchRandomPuzzleRow, fetchStats, fetchTodayPuzzleRow, recordResult, type PuzzleRow } from "./supabase";
 import { getOrCreateSessionId, isDebugFresh } from "./storage";
 import type { PuzzleState } from "./types";
 
 let currentPuzzle: Puzzle | null = null;
+
+// On a finished game, fill the result's community counts from puzzle_stats.
+// Best-effort: leave the zeros from the engine if stats can't be read.
+async function withCommunity(state: PuzzleState): Promise<PuzzleState> {
+  if (!state.result) return state;
+  try {
+    const stats = await fetchStats(state.puzzle_date);
+    if (stats) {
+      return {
+        ...state,
+        result: { ...state.result, community_finished: stats.plays, community_won: stats.solves },
+      };
+    }
+  } catch {
+    // ignore — keep zeros
+  }
+  return state;
+}
 
 function toPuzzle(row: PuzzleRow): Puzzle {
   currentPuzzle = {
@@ -45,7 +63,7 @@ export async function fetchToday(): Promise<PuzzleState> {
   }
   const puzzle = toPuzzle(await fetchTodayPuzzleRow());
   const game = loadGame(puzzle.puzzle_date) || defaultGame();
-  return computeState(puzzle, game, getOrCreateSessionId());
+  return withCommunity(computeState(puzzle, game, getOrCreateSessionId()));
 }
 
 export async function submitGuess(amount: number): Promise<PuzzleState> {
@@ -55,7 +73,7 @@ export async function submitGuess(amount: number): Promise<PuzzleState> {
   const game = loadGame(puzzle.puzzle_date) || defaultGame();
 
   if (game.status !== "playing") {
-    return computeState(puzzle, game, sessionId);
+    return withCommunity(computeState(puzzle, game, sessionId));
   }
 
   const { correct, direction } = evaluateGuess(puzzle.answer_eur, amount);
@@ -75,14 +93,18 @@ export async function submitGuess(amount: number): Promise<PuzzleState> {
     // Debug sessions must not pollute the shared community stats.
     if (!isDebugFresh()) {
       const bucket = game.status === "won" ? game.guesses.length : 6;
-      // Best-effort: never let community-stats reporting break gameplay.
-      recordResult(puzzle.puzzle_date, game.status === "won", bucket).catch(() => {});
+      // Awaited so the community counts we read back include this result.
+      try {
+        await recordResult(puzzle.puzzle_date, game.status === "won", bucket);
+      } catch {
+        // best-effort: never let community-stats reporting break gameplay
+      }
     }
     game.reported = true;
     saveGame(puzzle.puzzle_date, game);
   }
 
-  return computeState(puzzle, game, sessionId, { correct, direction });
+  return withCommunity(computeState(puzzle, game, sessionId, { correct, direction }));
 }
 
 export function formatEur(n: number): string {

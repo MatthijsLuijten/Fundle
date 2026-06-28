@@ -137,7 +137,9 @@
         "formatted_price": "€500.000",
         "url": "https://www.funda.nl/detail/koop/amsterdam/huis-keizersgracht-1-1015cn/4242/",
         "city": "Amsterdam",
-        "listed_ago": "2 weken online"
+        "listed_ago": "2 weken online",
+        "community_finished": 0,
+        "community_won": 0
       }
     }
   },
@@ -295,7 +297,9 @@
         "formatted_price": "€500.000",
         "url": "https://www.funda.nl/detail/koop/amsterdam/huis-keizersgracht-1-1015cn/4242/",
         "city": "Amsterdam",
-        "listed_ago": "2 weken online"
+        "listed_ago": "2 weken online",
+        "community_finished": 0,
+        "community_won": 0
       }
     }
   },
@@ -421,7 +425,9 @@
         "formatted_price": "€500.000",
         "url": "https://www.funda.nl/detail/koop/amsterdam/huis-keizersgracht-1-1015cn/4242/",
         "city": "Amsterdam",
-        "listed_ago": "2 weken online"
+        "listed_ago": "2 weken online",
+        "community_finished": 0,
+        "community_won": 0
       }
     }
   },

@@ -235,6 +235,9 @@ function resultPayload(puzzle: Puzzle, won: boolean): GameResult {
     url: fundaListingUrl(puzzle.payload),
     city: (puzzle.payload.city as string) ?? null,
     listed_ago: formatListedAgo(puzzle.payload.publication_date as string | undefined, puzzle.puzzle_date),
+    // Filled in from Supabase puzzle_stats by api.ts (the engine is offline/pure).
+    community_finished: 0,
+    community_won: 0,
   };
 }
 

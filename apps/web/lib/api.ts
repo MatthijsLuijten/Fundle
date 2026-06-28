@@ -41,7 +41,7 @@ function toPuzzle(row: PuzzleRow): Puzzle {
 // Dev only: ping a route handler that console.logs the answer server-side, so it
 // shows in the `npm run dev` terminal (the browser can't write there). No UI change.
 function logDebugAnswer(puzzle: Puzzle): void {
-  fetch("/api/debug-log", {
+  fetch("/api/debug", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -54,8 +54,11 @@ function logDebugAnswer(puzzle: Puzzle): void {
 
 export async function fetchToday(): Promise<PuzzleState> {
   if (isDebugFresh()) {
-    const res = await fetch("/api/debug-log");
-    if (!res.ok) throw new Error("Failed to fetch random puzzle");
+    const res = await fetch("/api/debug");
+    if (!res.ok) {
+      const detail = (await res.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(detail?.error ?? `Failed to fetch random puzzle (${res.status})`);
+    }
     const puzzle = toPuzzle((await res.json()) as PuzzleRow);
     logDebugAnswer(puzzle); // prints price+city to the dev terminal
     clearGame(puzzle.puzzle_date);

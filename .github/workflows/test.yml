@@ -54,7 +54,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd apps/web
-          npm install
+          npm ci
 
       - name: Run engine tests
         run: |

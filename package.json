@@ -1,6 +1,9 @@
 {
   "name": "fundle",
   "private": true,
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "setup": "node scripts/setup.js",
     "config:sync": "node scripts/sync_config.js",

@@ -1,5 +1,6 @@
 // Dev-only (DEBUG_FRESH=1): GET fetches a live random Funda listing via the Python
-// builder; POST logs the answer in the `next dev` terminal.
+// builder; POST logs the answer in the `next dev` terminal (the browser can't write
+// there). Both are 404 in production.
 
 import { execFile } from "node:child_process";
 import path from "node:path";

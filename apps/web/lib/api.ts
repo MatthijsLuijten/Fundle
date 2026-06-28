@@ -4,7 +4,7 @@
 
 import { computeState, decodeAnswer, evaluateGuess, MAX_GUESSES, type Puzzle } from "./engine";
 import { clearGame, defaultGame, loadGame, saveGame } from "./gameStore";
-import { fetchRandomPuzzleRow, fetchStats, fetchTodayPuzzleRow, recordResult, type PuzzleRow } from "./supabase";
+import { fetchStats, fetchTodayPuzzleRow, recordResult, type PuzzleRow } from "./supabase";
 import { getOrCreateSessionId, isDebugFresh } from "./storage";
 import type { PuzzleState } from "./types";
 
@@ -41,7 +41,7 @@ function toPuzzle(row: PuzzleRow): Puzzle {
 // Dev only: ping a route handler that console.logs the answer server-side, so it
 // shows in the `npm run dev` terminal (the browser can't write there). No UI change.
 function logDebugAnswer(puzzle: Puzzle): void {
-  fetch("/api/debug-log", {
+  fetch("/api/debug", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -54,9 +54,12 @@ function logDebugAnswer(puzzle: Puzzle): void {
 
 export async function fetchToday(): Promise<PuzzleState> {
   if (isDebugFresh()) {
-    // Dev: each refresh shows a random seeded listing with a clean board, and
-    // never resumes saved state. Seed a pool with `build_daily_puzzle.py --pool N`.
-    const puzzle = toPuzzle(await fetchRandomPuzzleRow());
+    const res = await fetch("/api/debug");
+    if (!res.ok) {
+      const detail = (await res.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(detail?.error ?? `Failed to fetch random puzzle (${res.status})`);
+    }
+    const puzzle = toPuzzle((await res.json()) as PuzzleRow);
     logDebugAnswer(puzzle); // prints price+city to the dev terminal
     clearGame(puzzle.puzzle_date);
     return computeState(puzzle, defaultGame(), getOrCreateSessionId());

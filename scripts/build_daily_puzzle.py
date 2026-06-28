@@ -5,15 +5,18 @@ Idempotent: skips when a puzzle already exists for the date unless --force.
 
 Usage:
   python build_daily_puzzle.py [--date YYYY-MM-DD] [--force]
+  python build_daily_puzzle.py --random   # dev: live Funda pick, JSON on stdout, no DB
 
 Requires env (loaded from apps/api/.env locally, or GitHub Actions secrets):
-  SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, PRICE_BUCKETS (optional)
+  SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (not needed for --random)
+  PRICE_BUCKETS (optional)
 """
 
 import argparse
+import json
 import os
 import sys
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -93,14 +96,16 @@ def main() -> None:
     )
     parser.add_argument("--force", action="store_true", help="Replace existing puzzle")
     parser.add_argument(
-        "--pool",
-        type=int,
-        default=0,
-        metavar="N",
-        help="Dev only: also seed N extra random puzzles on past dates "
-        "(feeds DEBUG_FRESH's random-listing-per-refresh mode)",
+        "--random",
+        action="store_true",
+        help="Dev only: fetch one live random Funda listing (JSON on stdout, no Supabase)",
     )
     args = parser.parse_args()
+
+    if args.random:
+        global_id, answer, payload = build_live_puzzle(today_date())
+        print(json.dumps({"global_id": global_id, "answer_token": obfuscate(answer), "payload": payload}))
+        return
 
     base_url, key = _require_env()
     headers = {
@@ -109,16 +114,7 @@ def main() -> None:
         "Content-Type": "application/json",
     }
 
-    today = today_date()
-
-    # Seed a dev pool on past dates so they never clobber the real daily puzzle.
-    if args.pool > 0:
-        for i in range(1, args.pool + 1):
-            _build_and_upsert(base_url, headers, today - timedelta(days=i))
-        print(f"✓ Seeded {args.pool} extra puzzle(s) for DEBUG_FRESH.")
-        return
-
-    puzzle_date = args.date or today
+    puzzle_date = args.date or today_date()
     if not args.force and _puzzle_exists(base_url, headers, puzzle_date):
         print(f"Puzzle for {puzzle_date} already exists; skipping (use --force to rebuild).")
         return

@@ -49,20 +49,6 @@ export async function fetchTodayPuzzleRow(): Promise<PuzzleRow> {
   return row;
 }
 
-// Dev only (DEBUG_FRESH): pick a random puzzle from whatever has been seeded so
-// each refresh can show a different listing. Falls back to the single daily row
-// if that's all that exists.
-export async function fetchRandomPuzzleRow(): Promise<PuzzleRow> {
-  const { data, error } = await getClient().from("daily_puzzles").select("puzzle_date");
-  if (error) throw error;
-  const dates = (data as { puzzle_date: string }[] | null) ?? [];
-  if (!dates.length) throw new Error("No puzzles seeded");
-  const pick = dates[Math.floor(Math.random() * dates.length)].puzzle_date;
-  const row = await fetchPuzzleRowByDate(pick);
-  if (!row) throw new Error("Puzzle disappeared");
-  return row;
-}
-
 export async function recordResult(date: string, won: boolean, guesses: number): Promise<void> {
   const { error } = await getClient().rpc("record_result", {
     p_date: date,

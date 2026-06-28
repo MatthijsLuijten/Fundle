@@ -340,6 +340,7 @@ def _enrich_payload_from_funda(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def build_live_puzzle(puzzle_date: date) -> tuple[int, int, dict]:
+    del puzzle_date  # listing selection is random; date is only for storage
     listing = fetch_random_listing()
     amount = listing.price.amount
     if amount is None:

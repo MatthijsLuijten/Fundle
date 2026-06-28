@@ -9,15 +9,7 @@ type Props = {
   state: PuzzleState;
 };
 
-function formatCommunityWinRate(won: number, finished: number): string {
-  const pct = Math.round((won / finished) * 100);
-  const spelers = finished === 1 ? "speler" : "spelers";
-  return `${pct}% van de ${spelers} raadde het goed (${won} van ${finished})`;
-}
-
 export function ResultCard({ result, state }: Props) {
-  const showCommunityStats = result.community_finished > 0;
-
   return (
     <div
       className={`animate-fade-in-up surface p-6 text-center ${
@@ -35,14 +27,6 @@ export function ResultCard({ result, state }: Props) {
       )}
       {result.listed_ago && (
         <p className="mt-1 text-sm text-fundle-muted">{result.listed_ago}</p>
-      )}
-      {showCommunityStats && (
-        <p className="mt-3 text-sm text-fundle-muted">
-          {formatCommunityWinRate(
-            result.community_won,
-            result.community_finished
-          )}
-        </p>
       )}
 
       <div className="mt-5 flex flex-col items-stretch gap-2.5 sm:flex-row sm:flex-wrap sm:justify-center">

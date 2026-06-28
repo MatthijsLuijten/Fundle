@@ -42,7 +42,13 @@ That creates the API venv, installs Python and npm dependencies, copies `fundle.
 
 Local settings live in `fundle.config.env` (gitignored). Copy from `fundle.config.env.example` and fill in your Supabase keys.
 
-**Debug:** set `DEBUG_FRESH=1` in `fundle.config.env` to start a fresh game on every page refresh. Use `0` for normal daily persistence (state in localStorage).
+**Debug:** set `DEBUG_FRESH=1` in `fundle.config.env` to start a fresh game on every page refresh with a **live random Funda listing** (no Supabase). Use `0` for normal daily persistence (state in localStorage).
+
+From the CLI you can also fetch one random listing without touching the database:
+
+```bash
+uv run --project apps/api python scripts/build_daily_puzzle.py --random
+```
 
 ### Daily puzzle
 

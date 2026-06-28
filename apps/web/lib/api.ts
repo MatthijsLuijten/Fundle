@@ -3,15 +3,14 @@
 // but they read the daily puzzle from Supabase and drive a local game engine.
 
 import { computeState, decodeAnswer, evaluateGuess, MAX_GUESSES, type Puzzle } from "./engine";
-import { defaultGame, loadGame, saveGame } from "./gameStore";
-import { fetchTodayPuzzleRow, recordResult } from "./supabase";
+import { clearGame, defaultGame, loadGame, saveGame } from "./gameStore";
+import { fetchRandomPuzzleRow, fetchTodayPuzzleRow, recordResult, type PuzzleRow } from "./supabase";
 import { getOrCreateSessionId, isDebugFresh } from "./storage";
 import type { PuzzleState } from "./types";
 
 let currentPuzzle: Puzzle | null = null;
 
-async function loadPuzzle(): Promise<Puzzle> {
-  const row = await fetchTodayPuzzleRow();
+function toPuzzle(row: PuzzleRow): Puzzle {
   currentPuzzle = {
     puzzle_date: row.puzzle_date,
     puzzle_number: row.puzzle_number,
@@ -21,14 +20,37 @@ async function loadPuzzle(): Promise<Puzzle> {
   return currentPuzzle;
 }
 
+// Dev only: ping a route handler that console.logs the answer server-side, so it
+// shows in the `npm run dev` terminal (the browser can't write there). No UI change.
+function logDebugAnswer(puzzle: Puzzle): void {
+  fetch("/api/debug-log", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      puzzleNumber: puzzle.puzzle_number,
+      answer: puzzle.answer_eur,
+      city: (puzzle.payload.city as string) ?? null,
+    }),
+  }).catch(() => {});
+}
+
 export async function fetchToday(): Promise<PuzzleState> {
-  const puzzle = await loadPuzzle();
-  const game = (!isDebugFresh() && loadGame(puzzle.puzzle_date)) || defaultGame();
+  if (isDebugFresh()) {
+    // Dev: each refresh shows a random seeded listing with a clean board, and
+    // never resumes saved state. Seed a pool with `build_daily_puzzle.py --pool N`.
+    const puzzle = toPuzzle(await fetchRandomPuzzleRow());
+    logDebugAnswer(puzzle); // prints price+city to the dev terminal
+    clearGame(puzzle.puzzle_date);
+    return computeState(puzzle, defaultGame(), getOrCreateSessionId());
+  }
+  const puzzle = toPuzzle(await fetchTodayPuzzleRow());
+  const game = loadGame(puzzle.puzzle_date) || defaultGame();
   return computeState(puzzle, game, getOrCreateSessionId());
 }
 
 export async function submitGuess(amount: number): Promise<PuzzleState> {
-  const puzzle = currentPuzzle ?? (await loadPuzzle());
+  // fetchToday always runs first and sets currentPuzzle; this is just a safety net.
+  const puzzle = currentPuzzle ?? toPuzzle(await fetchTodayPuzzleRow());
   const sessionId = getOrCreateSessionId();
   const game = loadGame(puzzle.puzzle_date) || defaultGame();
 
@@ -50,9 +72,12 @@ export async function submitGuess(amount: number): Promise<PuzzleState> {
   saveGame(puzzle.puzzle_date, game);
 
   if (game.status !== "playing" && !game.reported) {
-    const bucket = game.status === "won" ? game.guesses.length : 6;
-    // Best-effort: never let community-stats reporting break gameplay.
-    recordResult(puzzle.puzzle_date, game.status === "won", bucket).catch(() => {});
+    // Debug sessions must not pollute the shared community stats.
+    if (!isDebugFresh()) {
+      const bucket = game.status === "won" ? game.guesses.length : 6;
+      // Best-effort: never let community-stats reporting break gameplay.
+      recordResult(puzzle.puzzle_date, game.status === "won", bucket).catch(() => {});
+    }
     game.reported = true;
     saveGame(puzzle.puzzle_date, game);
   }

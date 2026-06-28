@@ -5,7 +5,7 @@ import { fetchToday, submitGuess } from "@/lib/api";
 import { fireWinConfetti } from "@/lib/confetti";
 import { MIN_GUESS_AMOUNT, parseAmount } from "@/lib/format";
 import { recordGameResult } from "@/lib/stats";
-import { hasSeenHelp, isDebugFresh } from "@/lib/storage";
+import { hasSeenHelp } from "@/lib/storage";
 import type { PuzzleState } from "@/lib/types";
 import { AppFooter, AppHeader } from "./AppShell";
 import { GameSkeleton } from "./GameSkeleton";
@@ -162,12 +162,6 @@ export function Game() {
         />
 
         <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-5">
-          {isDebugFresh() && (
-            <p className="text-center text-xs text-amber-400/90">
-              Debug: nieuwe sessie bij elke refresh
-            </p>
-          )}
-
           {/* 1. Woning — het puzzel */}
           <PhotoGallery
             urls={state.revealed_photos ?? []}

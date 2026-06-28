@@ -26,10 +26,7 @@ try {
   }
 
   console.log('Installing Python dependencies with uv...');
-  if (!fs.existsSync(venvDir)) {
-    execSync('uv venv .venv', { cwd: apiDir, stdio: 'inherit' });
-  }
-  execSync(`uv pip install --python ${venvPython} -r requirements.txt`, { cwd: apiDir, stdio: 'inherit' });
+  execSync('uv sync', { cwd: apiDir, stdio: 'inherit' });
 
   const apiEnv = path.join(apiDir, '.env');
   if (!fs.existsSync(apiEnv)) {

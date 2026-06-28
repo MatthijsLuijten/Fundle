@@ -154,11 +154,7 @@ def _check_bucket_partitions(buckets: list[tuple[int, int | None, float]]) -> No
         _, hi1 = sorted_buckets[i]
         lo2, _ = sorted_buckets[i + 1]
         if hi1 != lo2:
-            msg = (
-                f"⚠️  PRICE_BUCKETS gap detected: "
-                f"bucket ends at {hi1}, next starts at {lo2}. "
-                f"Gap: [{hi1}, {lo2})."
-            )
+            msg = f"⚠️  PRICE_BUCKETS gap detected: bucket ends at {hi1}, next starts at {lo2}. Gap: [{hi1}, {lo2})."
             logger.warning(msg)
             print(msg, file=sys.stderr, flush=True)
 
@@ -254,9 +250,7 @@ def _candidates_from_random_page(
     upper = _MAX_SEARCH_PAGE
     for _ in range(_PAGE_ATTEMPTS):
         page = random.randint(0, upper)
-        candidates = _search_candidates(
-            client, min_price=min_price, max_price=max_price, page=page
-        )
+        candidates = _search_candidates(client, min_price=min_price, max_price=max_price, page=page)
         if candidates:
             return candidates
         if page == 0:
@@ -277,14 +271,10 @@ def fetch_random_listing() -> Any:
     with Funda() as client:
         for i, (min_price, max_price) in enumerate((primary, *fallbacks)):
             for _ in range(_PAGE_ATTEMPTS):
-                candidates = _candidates_from_random_page(
-                    client, min_price=min_price, max_price=max_price
-                )
+                candidates = _candidates_from_random_page(client, min_price=min_price, max_price=max_price)
                 if not candidates:
                     continue
-                detail = _pick_listing_detail(
-                    client, candidates, min_price=min_price, max_price=max_price
-                )
+                detail = _pick_listing_detail(client, candidates, min_price=min_price, max_price=max_price)
                 if detail is not None:
                     if i > 0:
                         max_price_str = f"€{max_price:,}" if max_price else "∞"
@@ -298,14 +288,10 @@ def fetch_random_listing() -> Any:
 
         for _ in range(_PAGE_ATTEMPTS):
             page = random.randint(0, _MAX_SEARCH_PAGE)
-            candidates = _search_candidates(
-                client, min_price=None, max_price=None, page=page
-            )
+            candidates = _search_candidates(client, min_price=None, max_price=None, page=page)
             if not candidates:
                 continue
-            detail = _pick_listing_detail(
-                client, candidates, min_price=100_000, max_price=None
-            )
+            detail = _pick_listing_detail(client, candidates, min_price=100_000, max_price=None)
             if detail is not None:
                 return detail
 
@@ -364,9 +350,7 @@ def build_live_puzzle(puzzle_date: date) -> tuple[int, int, dict]:
 
 
 def _clear_sessions_for_date(db: Session, puzzle_date: date) -> None:
-    for row in db.scalars(
-        select(GameSession).where(GameSession.puzzle_date == puzzle_date)
-    ):
+    for row in db.scalars(select(GameSession).where(GameSession.puzzle_date == puzzle_date)):
         db.delete(row)
     db.commit()
 

@@ -84,6 +84,22 @@ apps/web/     Next.js UI
 scripts/      Cron-friendly puzzle builder
 ```
 
+## Testing
+
+Run the API test suite from the project root:
+
+```bash
+cd apps/api
+uv run pytest
+```
+
+Lint the API with Ruff:
+
+```bash
+cd apps/api
+uv run ruff check app tests
+```
+
 ## License note
 
 pyfunda is AGPL-3.0. Funda data is unofficial; use responsibly.

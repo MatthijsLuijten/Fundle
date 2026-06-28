@@ -19,7 +19,6 @@ dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24.0",
     "ruff>=0.6.0",
-    "httpx2>=0.1.0",
 ]
 
 [tool.ruff]

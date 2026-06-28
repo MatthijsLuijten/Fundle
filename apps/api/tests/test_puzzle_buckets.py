@@ -107,7 +107,7 @@ class TestPricePartitions:
         # For [100, 200) and [200, 300): 200 <= 200 is True, so NOT True = False (no overlap) ✓
         _check_bucket_partitions(buckets)
 
-    def test_partition_overlap_math(self):
+    def test_partition_overlap_math(self, capsys):
         """Verify interval logic: [a, b) and [a, c) where b > a overlap."""
         buckets = [
             (100, 300, 0.5),  # [100, 300)
@@ -115,7 +115,8 @@ class TestPricePartitions:
         ]
         # The condition: NOT (300 <= 200 or 400 <= 100) = NOT (False or False) = True (overlap!) ✓
         _check_bucket_partitions(buckets)
-        # This would log a warning in real usage
+        captured = capsys.readouterr()
+        assert "overlap detected" in captured.err.lower()
 
 
 class TestListingDetailFiltering:

@@ -2,7 +2,7 @@ name: Test API
 
 on:
   push:
-    branches: [main, feature/**, chore/**]
+    branches: [main]
     paths:
       - "apps/api/**"
       - ".github/workflows/test.yml"

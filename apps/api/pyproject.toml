@@ -1,5 +1,5 @@
 [project]
-name = "fundle-api"
+name = "fundle"
 version = "0.1.0"
 description = "Fundle API - Guess the Funda asking price"
 requires-python = ">=3.13"

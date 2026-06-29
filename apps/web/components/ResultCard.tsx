@@ -1,5 +1,6 @@
 import type { GameResult, PuzzleState } from "@/lib/types";
 import { CommunityStats } from "./CommunityStats";
+import { DifficultyBadge } from "./DifficultyBadge";
 import { CopyResultButton } from "./CopyResultButton";
 import { ShareButton } from "./ShareButton";
 import { ExternalLink } from "lucide-react";
@@ -28,6 +29,8 @@ export function ResultCard({ result, state }: Props) {
       {result.listed_ago && (
         <p className="mt-1 text-sm text-fundle-muted">{result.listed_ago}</p>
       )}
+
+      <DifficultyBadge puzzleDate={state.puzzle_date} />
 
       <div className="mt-5 flex flex-col items-stretch gap-2.5 sm:flex-row sm:flex-wrap sm:justify-center">
         <ShareButton state={state} className="w-full sm:w-auto" />

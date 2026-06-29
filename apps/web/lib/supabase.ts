@@ -67,3 +67,14 @@ export async function fetchStats(date: string): Promise<StatsRow | null> {
   if (error) throw error;
   return (data as StatsRow | null) ?? null;
 }
+
+// All stats up to and including `date`, for ranking today's puzzle difficulty
+// against past puzzles. One row per day, so this stays small for years.
+export async function fetchStatsThrough(date: string): Promise<StatsRow[]> {
+  const { data, error } = await getClient()
+    .from("puzzle_stats")
+    .select("puzzle_date,plays,solves,guess_buckets")
+    .lte("puzzle_date", date);
+  if (error) throw error;
+  return (data as StatsRow[] | null) ?? [];
+}

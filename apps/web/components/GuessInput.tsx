@@ -1,11 +1,12 @@
 "use client";
 
 import {
-  formatInputDigits,
+  formatInputWithCursor,
   MIN_GUESS_AMOUNT,
   parseAmount,
 } from "@/lib/format";
 import { Loader2 } from "lucide-react";
+import { useLayoutEffect, useRef } from "react";
 
 type Props = {
   value: string;
@@ -22,8 +23,23 @@ export function GuessInput({
   submitting,
   shake = false,
 }: Props) {
-  function handleChange(raw: string) {
-    onChange(formatInputDigits(raw));
+  const inputRef = useRef<HTMLInputElement>(null);
+  const pendingCursor = useRef<number | null>(null);
+
+  useLayoutEffect(() => {
+    if (pendingCursor.current === null || !inputRef.current) return;
+    const pos = pendingCursor.current;
+    pendingCursor.current = null;
+    inputRef.current.setSelectionRange(pos, pos);
+  }, [value]);
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const { value: next, cursorPos } = formatInputWithCursor(
+      e.target.value,
+      e.target.selectionStart ?? e.target.value.length,
+    );
+    pendingCursor.current = cursorPos;
+    onChange(next);
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -51,12 +67,13 @@ export function GuessInput({
             €
           </span>
           <input
+            ref={inputRef}
             id="price"
             type="text"
             inputMode="numeric"
             placeholder="450.000"
             value={value}
-            onChange={(e) => handleChange(e.target.value)}
+            onChange={handleChange}
             className="w-full rounded-xl border border-fundle-border bg-fundle-bg-elevated py-3.5 pl-9 pr-4 text-base font-medium tabular-nums outline-none transition placeholder:text-fundle-muted/50 focus:border-fundle-accent/40 focus:ring-2 focus:ring-fundle-accent-muted"
             autoComplete="off"
           />

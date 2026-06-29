@@ -5,7 +5,7 @@
 import { computeState, decodeAnswer, evaluateGuess, MAX_GUESSES, type Puzzle } from "./engine";
 import { clearGame, defaultGame, loadGame, saveGame } from "./gameStore";
 import { fetchStats, fetchTodayPuzzleRow, recordResult, type PuzzleRow } from "./supabase";
-import { getOrCreateSessionId, isDebugFresh } from "./storage";
+import { getOrCreateSessionId, isDebugFresh, shouldReportCommunityStats } from "./storage";
 import type { PuzzleState } from "./types";
 
 let currentPuzzle: Puzzle | null = null;
@@ -93,8 +93,7 @@ export async function submitGuess(amount: number): Promise<PuzzleState> {
   saveGame(puzzle.puzzle_date, game);
 
   if (game.status !== "playing" && !game.reported) {
-    // Debug sessions must not pollute the shared community stats.
-    if (!isDebugFresh()) {
+    if (shouldReportCommunityStats()) {
       const bucket = game.status === "won" ? game.guesses.length : 6;
       // Awaited so the community counts we read back include this result.
       try {

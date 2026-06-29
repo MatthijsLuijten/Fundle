@@ -5,6 +5,11 @@ export function isDebugFresh(): boolean {
   return process.env.NEXT_PUBLIC_DEBUG_FRESH === "1";
 }
 
+/** False during `npm run dev` and DEBUG_FRESH sessions — never pollute prod stats. */
+export function shouldReportCommunityStats(): boolean {
+  return process.env.NODE_ENV !== "development" && !isDebugFresh();
+}
+
 // Stable per-browser id. No longer a server session — just a local identifier
 // kept for the PuzzleState shape and potential future use.
 export function getOrCreateSessionId(): string {

@@ -2,11 +2,13 @@ name: Build daily puzzle
 
 on:
   schedule:
-    # GitHub cron is UTC-only. CET = UTC+1 and CEST = UTC+2, so Amsterdam
-    # midnight is 23:00 UTC in winter and 22:00 UTC in summer. Run both slots
-    # and skip unless the local hour is 00 (see "Skip if not Amsterdam midnight").
-    - cron: "0 22 * * *"
-    - cron: "0 23 * * *"
+    # Primary trigger is the Supabase pg_cron job (supabase/migrations/
+    # 0001_daily_puzzle_cron.sql), which POSTs workflow_dispatch right at
+    # Amsterdam midnight. This GitHub cron is only a best-effort safety net in
+    # case that trigger ever fails: it guarantees a puzzle exists by morning.
+    # Amsterdam 07:00 (summer) / 08:00 (winter). The build script is idempotent,
+    # so on a normal day this run is a cheap no-op.
+    - cron: "5 6 * * *"
   workflow_dispatch:
     inputs:
       date:
@@ -25,34 +27,42 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Should run
-        id: should_run
+      - uses: actions/checkout@v5
+
+      # Cheap early-exit so the ~23 no-op runs/day don't bother installing the
+      # toolchain. This only short-circuits; the build step below does its own
+      # authoritative existence check. On any uncertainty (puzzle missing, or
+      # the query failed) we fall through and let the script decide.
+      - name: Skip if today's puzzle already exists
+        id: precheck
+        if: github.event_name != 'workflow_dispatch'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "value=true" >> "$GITHUB_OUTPUT"
+          today=$(TZ=Europe/Amsterdam date +%F)
+          rows=$(curl -fsS \
+            "$SUPABASE_URL/rest/v1/daily_puzzles?puzzle_date=eq.$today&select=puzzle_date" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" 2>/dev/null || echo "ERR")
+          if [ "$rows" = "[]" ] || [ "$rows" = "ERR" ]; then
+            echo "Puzzle for $today not found yet (or check failed); building."
+            echo "skip=false" >> "$GITHUB_OUTPUT"
           else
-            hour=$(TZ=Europe/Amsterdam date +%H)
-            if [ "$hour" = "00" ]; then
-              echo "value=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "value=false" >> "$GITHUB_OUTPUT"
-              echo "Not midnight in Europe/Amsterdam (local hour=$hour), skipping scheduled run."
-            fi
+            echo "Puzzle for $today already exists; skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@v4
-        if: steps.should_run.outputs.value == 'true'
-
       - name: Install uv
-        if: steps.should_run.outputs.value == 'true'
-        uses: astral-sh/setup-uv@v4
+        if: steps.precheck.outputs.skip != 'true'
+        uses: astral-sh/setup-uv@v6
 
       - name: Install dependencies
-        if: steps.should_run.outputs.value == 'true'
+        if: steps.precheck.outputs.skip != 'true'
         run: uv sync --project apps/api
 
       - name: Build and publish puzzle
-        if: steps.should_run.outputs.value == 'true'
+        if: steps.precheck.outputs.skip != 'true'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

@@ -89,6 +89,19 @@ def _build_photo_order(payload: dict) -> list[str]:
     return [pool[i] for i in indices]
 
 
+def _unlocked_photo_count(guesses_count: int, total: int) -> int:
+    """How many photos are unlocked after ``guesses_count`` guesses.
+
+    Normally a fresh batch lands *after* each guess, to help the next one. On the
+    final guess that batch would only appear once no guesses remain (useless), so
+    we front-load the remaining photos onto the last guess instead — the
+    highest-stakes guess gets the most to work with.
+    """
+    if guesses_count >= MAX_GUESSES - 1:
+        return total
+    return min(1 + PHOTOS_PER_GUESS * guesses_count, total)
+
+
 def revealed_photos(session: GameSession, payload: dict) -> list[str]:
     """Start with photo 1; each guess unlocks two more percentile picks."""
     order = list(session.photo_order or [])
@@ -96,8 +109,7 @@ def revealed_photos(session: GameSession, payload: dict) -> list[str]:
         return []
     if session.status == "won":
         return order
-    unlocked = 1 + PHOTOS_PER_GUESS * len(session.guesses)
-    return order[: min(unlocked, len(order))]
+    return order[: _unlocked_photo_count(len(session.guesses), len(order))]
 
 
 def _delete_session(db: Session, session_id: str, puzzle_date: date) -> None:
@@ -289,8 +301,9 @@ def session_state(
     guesses_count = len(session.guesses)
     new_photo_urls: list[str] = []
     if guesses_count > 0:
-        prev_unlocked = 1 + PHOTOS_PER_GUESS * (guesses_count - 1)
-        unlocked = 1 + PHOTOS_PER_GUESS * guesses_count
+        order_len = len(session.photo_order or [])
+        prev_unlocked = _unlocked_photo_count(guesses_count - 1, order_len)
+        unlocked = _unlocked_photo_count(guesses_count, order_len)
         new_photo_urls = photos[prev_unlocked:unlocked]
 
     return {

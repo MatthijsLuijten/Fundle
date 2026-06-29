@@ -99,11 +99,20 @@ export function buildPhotoOrder(payload: Payload): string[] {
   return indices.map((i) => pool[i]);
 }
 
+// How many photos are unlocked after `guessesCount` guesses. Normally a fresh
+// batch lands *after* each guess, to help the next one. On the final guess that
+// batch would only appear once no guesses remain (useless), so we front-load the
+// remaining photos onto the last guess instead — the highest-stakes guess gets
+// the most to work with.
+function unlockedPhotoCount(guessesCount: number, total: number): number {
+  if (guessesCount >= MAX_GUESSES - 1) return total;
+  return Math.min(1 + PHOTOS_PER_GUESS * guessesCount, total);
+}
+
 function revealedPhotos(order: string[], guessesCount: number, status: GameState["status"]): string[] {
   if (!order.length) return [];
   if (status === "won") return order;
-  const unlocked = 1 + PHOTOS_PER_GUESS * guessesCount;
-  return order.slice(0, Math.min(unlocked, order.length));
+  return order.slice(0, unlockedPhotoCount(guessesCount, order.length));
 }
 
 // --- Hints (port of hints.py) -----------------------------------------------
@@ -272,8 +281,8 @@ export function computeState(
 
   let newPhotoUrls: string[] = [];
   if (guessesCount > 0) {
-    const prevUnlocked = 1 + PHOTOS_PER_GUESS * (guessesCount - 1);
-    const unlocked = 1 + PHOTOS_PER_GUESS * guessesCount;
+    const prevUnlocked = unlockedPhotoCount(guessesCount - 1, order.length);
+    const unlocked = unlockedPhotoCount(guessesCount, order.length);
     newPhotoUrls = photos.slice(prevUnlocked, unlocked);
   }
 

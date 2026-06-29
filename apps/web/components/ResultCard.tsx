@@ -17,7 +17,7 @@ export function ResultCard({ result, state }: Props) {
       }`}
     >
       <p className="section-label mb-2">
-        {result.won ? "Goed geraden!" : "De vraagprijs was"}
+        {result.won ? "Goed geraden!" : "Helaas! De vraagprijs was"}
       </p>
       <p className="text-4xl font-bold tabular-nums tracking-tight">
         {result.formatted_price}

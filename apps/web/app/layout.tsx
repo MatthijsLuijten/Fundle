@@ -10,7 +10,7 @@ const jakarta = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   title: "Fundle",
-  description: "Daily Dutch housing price puzzle powered by Funda listings",
+  description: "Huizen zijn onbetaalbaar, raden is gratis!",
   appleWebApp: {
     title: "Fundle",
   },

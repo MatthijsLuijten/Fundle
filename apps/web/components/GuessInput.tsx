@@ -6,7 +6,7 @@ import {
   parseAmount,
 } from "@/lib/format";
 import { Loader2 } from "lucide-react";
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 type Props = {
   value: string;
@@ -25,13 +25,14 @@ export function GuessInput({
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const pendingCursor = useRef<number | null>(null);
+  const [editTick, setEditTick] = useState(0);
 
   useLayoutEffect(() => {
     if (pendingCursor.current === null || !inputRef.current) return;
     const pos = pendingCursor.current;
     pendingCursor.current = null;
     inputRef.current.setSelectionRange(pos, pos);
-  }, [value]);
+  }, [value, editTick]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const { value: next, cursorPos } = formatInputWithCursor(
@@ -40,6 +41,7 @@ export function GuessInput({
     );
     pendingCursor.current = cursorPos;
     onChange(next);
+    setEditTick((t) => t + 1);
   }
 
   function handleSubmit(e: React.FormEvent) {

@@ -29,4 +29,10 @@ describe("formatInputWithCursor", () => {
     expect(value).toBe("4.500.001");
     expect(cursorPos).toBe(value.length);
   });
+
+  it("keeps cursor in place when a non-digit is rejected", () => {
+    const { value, cursorPos } = formatInputWithCursor("45a0.000", 3);
+    expect(value).toBe("450.000");
+    expect(value.slice(0, cursorPos).replace(/\D/g, "")).toBe("45");
+  });
 });

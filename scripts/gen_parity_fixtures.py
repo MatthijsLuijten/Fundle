@@ -113,8 +113,11 @@ def expected_state(sim: dict) -> dict:
     new_photo_urls: list[str] = []
     if guesses_count > 0:
         prev = 1 + PHOTOS_PER_GUESS * (guesses_count - 1)
-        unlocked = 1 + PHOTOS_PER_GUESS * guesses_count
-        new_photo_urls = photos[prev:unlocked]
+        if status == "won":
+            new_photo_urls = photos[prev:]
+        else:
+            unlocked = 1 + PHOTOS_PER_GUESS * guesses_count
+            new_photo_urls = photos[prev:unlocked]
 
     result = None
     if terminal:
@@ -142,7 +145,9 @@ def expected_state(sim: dict) -> dict:
         "hint_level": hint_level_out,
         "status": status,
         "hints": humanize_hints(hints_for_level(PAYLOAD, hint_level_out)),
-        "new_hints": new_hints_for_level(PAYLOAD, hint_level, guesses_count),
+        "new_hints": new_hints_for_level(
+            PAYLOAD, hint_level, guesses_count, status=status
+        ),
         "new_photo_urls": new_photo_urls,
         "revealed_photos": photos,
         "guesses": guesses,

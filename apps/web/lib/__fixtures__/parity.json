@@ -97,12 +97,18 @@
       "new_hints": {
         "neighbourhood": "Grachtengordel",
         "plot_area": 90,
+        "bedrooms": 3,
         "house_type": "Grachtenpand",
+        "insulation": "Dubbel glas",
         "sustainability": "Zonnepanelen · Warmtepomp"
       },
       "new_photo_urls": [
         "https://cdn/p5.jpg",
-        "https://cdn/p6.jpg"
+        "https://cdn/p6.jpg",
+        "https://cdn/p7.jpg",
+        "https://cdn/p8.jpg",
+        "https://cdn/p9.jpg",
+        "https://cdn/p10.jpg"
       ],
       "revealed_photos": [
         "https://cdn/p0.jpg",
@@ -534,13 +540,27 @@
       },
       "new_hints": {
         "neighbourhood": "Grachtengordel",
+        "living_area": 125,
         "plot_area": 90,
+        "energy_label": "A",
+        "bedrooms": 3,
+        "rooms": 5,
+        "year": 1890,
         "house_type": "Grachtenpand",
+        "insulation": "Dubbel glas",
         "sustainability": "Zonnepanelen · Warmtepomp"
       },
       "new_photo_urls": [
         "https://cdn/p1.jpg",
-        "https://cdn/p2.jpg"
+        "https://cdn/p2.jpg",
+        "https://cdn/p3.jpg",
+        "https://cdn/p4.jpg",
+        "https://cdn/p5.jpg",
+        "https://cdn/p6.jpg",
+        "https://cdn/p7.jpg",
+        "https://cdn/p8.jpg",
+        "https://cdn/p9.jpg",
+        "https://cdn/p10.jpg"
       ],
       "revealed_photos": [
         "https://cdn/p0.jpg",

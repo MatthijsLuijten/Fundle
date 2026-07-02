@@ -172,8 +172,23 @@ function humanizeHints(hints: Payload): Hints {
   return display;
 }
 
-function newHintsForLevel(payload: Payload, hintLevel: number, guessesCount: number): Hints {
+function newHintsForLevel(
+  payload: Payload,
+  hintLevel: number,
+  guessesCount: number,
+  status: GameState["status"]
+): Hints {
   if (guessesCount === 0) return {};
+  if (status === "won") {
+    const prevLevel = Math.min(guessesCount - 1, MAX_HINT_LEVEL);
+    const prevHints = humanizeHints(hintsForLevel(payload, prevLevel));
+    const allHints = humanizeHints(hintsForLevel(payload, MAX_HINT_LEVEL));
+    const result: Hints = {};
+    for (const [key, value] of Object.entries(allHints)) {
+      if (!(key in prevHints)) result[key] = value;
+    }
+    return result;
+  }
   return humanizeHints(hintsAtLevel(payload, hintLevel));
 }
 
@@ -282,8 +297,13 @@ export function computeState(
   let newPhotoUrls: string[] = [];
   if (guessesCount > 0) {
     const prevUnlocked = unlockedPhotoCount(guessesCount - 1, order.length);
-    const unlocked = unlockedPhotoCount(guessesCount, order.length);
-    newPhotoUrls = photos.slice(prevUnlocked, unlocked);
+    if (game.status === "won") {
+      // Winning reveals the full gallery; mark every newly visible photo as "nieuw".
+      newPhotoUrls = photos.slice(prevUnlocked);
+    } else {
+      const unlocked = unlockedPhotoCount(guessesCount, order.length);
+      newPhotoUrls = photos.slice(prevUnlocked, unlocked);
+    }
   }
 
   return {
@@ -297,7 +317,7 @@ export function computeState(
     hint_level: hintLevel,
     status: game.status,
     hints: humanizeHints(rawHints),
-    new_hints: newHintsForLevel(puzzle.payload, game.hint_level, guessesCount),
+    new_hints: newHintsForLevel(puzzle.payload, game.hint_level, guessesCount, game.status),
     new_photo_urls: newPhotoUrls,
     revealed_photos: photos,
     guesses: game.guesses,

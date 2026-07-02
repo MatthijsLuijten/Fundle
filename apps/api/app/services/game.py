@@ -303,8 +303,11 @@ def session_state(
     if guesses_count > 0:
         order_len = len(session.photo_order or [])
         prev_unlocked = _unlocked_photo_count(guesses_count - 1, order_len)
-        unlocked = _unlocked_photo_count(guesses_count, order_len)
-        new_photo_urls = photos[prev_unlocked:unlocked]
+        if session.status == "won":
+            new_photo_urls = photos[prev_unlocked:]
+        else:
+            unlocked = _unlocked_photo_count(guesses_count, order_len)
+            new_photo_urls = photos[prev_unlocked:unlocked]
 
     return {
         "puzzle_date": session.puzzle_date,
@@ -318,7 +321,7 @@ def session_state(
         "status": session.status,
         "hints": humanize_hints(raw_hints),
         "new_hints": new_hints_for_level(
-            puzzle.payload, session.hint_level, guesses_count
+            puzzle.payload, session.hint_level, guesses_count, status=session.status
         ),
         "new_photo_urls": new_photo_urls,
         "revealed_photos": photos,

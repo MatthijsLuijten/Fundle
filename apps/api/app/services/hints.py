@@ -150,11 +150,20 @@ def hints_at_level(payload: dict[str, Any], hint_level: int) -> dict[str, Any]:
 
 
 def new_hints_for_level(
-    payload: dict[str, Any], hint_level: int, guesses_count: int
+    payload: dict[str, Any],
+    hint_level: int,
+    guesses_count: int,
+    *,
+    status: str = "playing",
 ) -> dict[str, Any]:
     """Hints that just appeared after the latest guess (none on initial load)."""
     if guesses_count == 0:
         return {}
+    if status == "won":
+        prev_level = min(guesses_count - 1, MAX_HINT_LEVEL)
+        prev = humanize_hints(hints_for_level(payload, prev_level))
+        all_hints = humanize_hints(hints_for_level(payload, MAX_HINT_LEVEL))
+        return {k: v for k, v in all_hints.items() if k not in prev}
     return humanize_hints(hints_at_level(payload, hint_level))
 
 

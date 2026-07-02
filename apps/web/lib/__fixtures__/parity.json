@@ -144,6 +144,151 @@
     }
   },
   {
+    "name": "in_progress_4",
+    "puzzle": {
+      "puzzle_date": "2026-03-15",
+      "puzzle_number": 74,
+      "payload": {
+        "global_id": 4242,
+        "tiny_id": "abc123",
+        "url": "https://www.funda.nl/detail/koop/amsterdam/huis-keizersgracht-1-1015cn/4242/",
+        "detail_path": "/detail/koop/amsterdam/huis-keizersgracht-1-1015cn/4242/",
+        "object_type": "house",
+        "city": "Amsterdam",
+        "province": "Noord-Holland",
+        "municipality": "Amsterdam",
+        "neighbourhood": "Grachtengordel",
+        "living_area": 125,
+        "plot_area": 90,
+        "energy_label": "A",
+        "bedrooms": 3,
+        "rooms_count": 5,
+        "construction_year": 1890,
+        "house_type": "Grachtenpand",
+        "insulation": "Dubbel glas",
+        "sustainability_measures": [
+          "Zonnepanelen",
+          "Warmtepomp"
+        ],
+        "publication_date": "2026-03-01T00:00:00Z",
+        "photo_url": "https://cdn/p0.jpg",
+        "photo_urls": [
+          "https://cdn/p0.jpg",
+          "https://cdn/p1.jpg",
+          "https://cdn/p2.jpg",
+          "https://cdn/p3.jpg",
+          "https://cdn/p4.jpg",
+          "https://cdn/p5.jpg",
+          "https://cdn/p6.jpg",
+          "https://cdn/p7.jpg",
+          "https://cdn/p8.jpg",
+          "https://cdn/p9.jpg",
+          "https://cdn/p10.jpg",
+          "https://cdn/p11.jpg"
+        ],
+        "photo_count": 12
+      },
+      "answer_eur": 500000
+    },
+    "game": {
+      "guesses": [
+        {
+          "amount": 300000,
+          "direction": "low"
+        },
+        {
+          "amount": 320000,
+          "direction": "low"
+        },
+        {
+          "amount": 340000,
+          "direction": "low"
+        },
+        {
+          "amount": 360000,
+          "direction": "low"
+        }
+      ],
+      "status": "playing",
+      "hint_level": 4
+    },
+    "lastGuess": {
+      "correct": false,
+      "direction": "low"
+    },
+    "sessionId": "test-session",
+    "expected": {
+      "puzzle_date": "2026-03-15",
+      "puzzle_number": 74,
+      "session_id": "test-session",
+      "correct": false,
+      "direction": "low",
+      "guesses_used": 4,
+      "max_guesses": 5,
+      "hint_level": 4,
+      "status": "playing",
+      "hints": {
+        "property": "Woning",
+        "city": "Amsterdam",
+        "province": "Noord-Holland",
+        "neighbourhood": "Grachtengordel",
+        "living_area": 125,
+        "plot_area": 90,
+        "energy_label": "A",
+        "bedrooms": 3,
+        "rooms": 5,
+        "year": 1890,
+        "house_type": "Grachtenpand",
+        "insulation": "Dubbel glas",
+        "sustainability": "Zonnepanelen · Warmtepomp"
+      },
+      "new_hints": {
+        "neighbourhood": "Grachtengordel",
+        "plot_area": 90,
+        "house_type": "Grachtenpand",
+        "sustainability": "Zonnepanelen · Warmtepomp"
+      },
+      "new_photo_urls": [
+        "https://cdn/p7.jpg",
+        "https://cdn/p8.jpg",
+        "https://cdn/p9.jpg",
+        "https://cdn/p10.jpg"
+      ],
+      "revealed_photos": [
+        "https://cdn/p0.jpg",
+        "https://cdn/p1.jpg",
+        "https://cdn/p2.jpg",
+        "https://cdn/p3.jpg",
+        "https://cdn/p4.jpg",
+        "https://cdn/p5.jpg",
+        "https://cdn/p6.jpg",
+        "https://cdn/p7.jpg",
+        "https://cdn/p8.jpg",
+        "https://cdn/p9.jpg",
+        "https://cdn/p10.jpg"
+      ],
+      "guesses": [
+        {
+          "amount": 300000,
+          "direction": "low"
+        },
+        {
+          "amount": 320000,
+          "direction": "low"
+        },
+        {
+          "amount": 340000,
+          "direction": "low"
+        },
+        {
+          "amount": 360000,
+          "direction": "low"
+        }
+      ],
+      "result": null
+    }
+  },
+  {
     "name": "loss_after_5",
     "puzzle": {
       "puzzle_date": "2026-03-15",
@@ -252,10 +397,7 @@
         "house_type": "Grachtenpand",
         "sustainability": "Zonnepanelen · Warmtepomp"
       },
-      "new_photo_urls": [
-        "https://cdn/p9.jpg",
-        "https://cdn/p10.jpg"
-      ],
+      "new_photo_urls": [],
       "revealed_photos": [
         "https://cdn/p0.jpg",
         "https://cdn/p1.jpg",

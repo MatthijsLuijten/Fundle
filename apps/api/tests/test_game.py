@@ -93,6 +93,22 @@ def test_revealed_photos_increments_with_guesses():
     assert len(photos) == 1 + PHOTOS_PER_GUESS * 2
 
 
+def test_revealed_photos_final_guess_front_loads_remaining():
+    """The final guess unlocks all remaining photos up front, instead of leaving
+    a batch to appear uselessly after the last guess is spent."""
+    photo_order = [f"url{i}" for i in range(11)]
+    session = GameSession(
+        session_id="test",
+        puzzle_date=date.today(),
+        guesses=[{"amount": a} for a in (1, 2, 3, 4)],  # 4 guesses -> final pending
+        hint_level=0,
+        status="playing",
+        photo_order=photo_order,
+    )
+    photos = revealed_photos(session, {})
+    assert photos == photo_order
+
+
 def test_revealed_photos_won_shows_all():
     """Won status reveals all photos."""
     photo_order = ["url0", "url1", "url2", "url3"]

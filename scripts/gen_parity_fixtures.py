@@ -18,11 +18,13 @@ ROOT = Path(__file__).resolve().parents[1]
 API_ROOT = ROOT / "apps" / "api"
 sys.path.insert(0, str(API_ROOT))
 
+from datetime import date
+
 from app.services.funda_url import funda_listing_url
 from app.services.game import (
     MAX_GUESSES,
-    PHOTOS_PER_GUESS,
     _build_photo_order,
+    _unlocked_photo_count,
     evaluate_guess,
     puzzle_number_for_date,
     revealed_photos,
@@ -34,7 +36,6 @@ from app.services.hints import (
     humanize_hints,
     new_hints_for_level,
 )
-from datetime import date
 
 OUT = ROOT / "apps" / "web" / "lib" / "__fixtures__" / "parity.json"
 PUZZLE_DATE = date(2026, 3, 15)
@@ -69,6 +70,9 @@ PAYLOAD = {
 # Guess sequences (amount per guess).
 SCENARIOS = {
     "win_guess_3": [400_000, 600_000, 505_000],
+    # 4 wrong guesses, final guess still pending: the remaining photos front-load
+    # onto the last guess instead of appearing uselessly after it.
+    "in_progress_4": [300_000, 320_000, 340_000, 360_000],
     "loss_after_5": [300_000, 320_000, 340_000, 360_000, 380_000],
     "win_guess_1": [500_000],
     "in_progress_2": [420_000, 580_000],
@@ -95,7 +99,12 @@ def simulate(amounts: list[int]) -> dict:
         else:
             hint_level = min(hint_level + 1, MAX_HINT_LEVEL)
 
-    return {"guesses": guesses, "status": status, "hint_level": hint_level, "last": last}
+    return {
+        "guesses": guesses,
+        "status": status,
+        "hint_level": hint_level,
+        "last": last,
+    }
 
 
 def expected_state(sim: dict) -> dict:
@@ -112,8 +121,8 @@ def expected_state(sim: dict) -> dict:
 
     new_photo_urls: list[str] = []
     if guesses_count > 0:
-        prev = 1 + PHOTOS_PER_GUESS * (guesses_count - 1)
-        unlocked = 1 + PHOTOS_PER_GUESS * guesses_count
+        prev = _unlocked_photo_count(guesses_count - 1, len(order))
+        unlocked = _unlocked_photo_count(guesses_count, len(order))
         new_photo_urls = photos[prev:unlocked]
 
     result = None
@@ -124,7 +133,9 @@ def expected_state(sim: dict) -> dict:
             "formatted_price": f"€{ANSWER_EUR:,}".replace(",", "."),
             "url": funda_listing_url(PAYLOAD),
             "city": PAYLOAD.get("city"),
-            "listed_ago": format_listed_ago(PAYLOAD.get("publication_date"), reference=PUZZLE_DATE),
+            "listed_ago": format_listed_ago(
+                PAYLOAD.get("publication_date"), reference=PUZZLE_DATE
+            ),
             # Community counts are injected client-side from Supabase, not by the
             # engine; the engine emits zeros (see engine.ts resultPayload).
             "community_finished": 0,
@@ -175,7 +186,9 @@ def main() -> None:
         )
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(fixtures, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    OUT.write_text(
+        json.dumps(fixtures, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
     print(f"Wrote {len(fixtures)} fixtures -> {OUT.relative_to(ROOT)}")
 
 

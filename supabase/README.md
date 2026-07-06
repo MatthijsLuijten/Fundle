@@ -52,6 +52,46 @@ best-effort and often 15+ minutes late). One-time setup:
    ```
    A `201` from the GitHub API means the dispatch was accepted.
 
+### `0002_abuse_protection.sql` — hardened stats recording
+
+Response to the 2026-07-06 spam incident (~1000 scripted fake results).
+Replaces `record_result` with a self-defending version and adds a
+`result_submissions` audit table (one row per accepted result: timestamp,
+per-day hashed IP, browser session id). Protections, all server-side and
+invisible to real players:
+
+- max **10 counted results per IP per puzzle day** (excess silently ignored, so
+  bots get no feedback);
+- **one result per browser session per day**;
+- only **today's** (Europe/Amsterdam) puzzle date is accepted — no backfilling
+  past days;
+- guess-count/won-lost sanity checks.
+
+Apply by pasting the file into the SQL editor. No config needed. To inspect or
+clean up after an attack:
+
+```sql
+-- who submitted what today
+select ip_hash, count(*), min(created_at), max(created_at)
+from result_submissions
+where puzzle_date = current_date
+group by ip_hash order by count(*) desc;
+
+-- after deleting bad rows, rebuild the day's aggregates from the audit log:
+update puzzle_stats s set
+  plays  = agg.plays, solves = agg.solves, guess_buckets = agg.buckets
+from (
+  select puzzle_date, count(*) plays,
+         count(*) filter (where won) solves,
+         jsonb_object_agg(guesses::text, n) buckets
+  from (select puzzle_date, won, guesses, count(*) n
+        from result_submissions where puzzle_date = 'YYYY-MM-DD'
+        group by 1,2,3) t
+  group by puzzle_date
+) agg
+where s.puzzle_date = agg.puzzle_date;
+```
+
 ### Notes
 
 - If you fork to a different repo, update the `url` in

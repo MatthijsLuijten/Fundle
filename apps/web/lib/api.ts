@@ -97,7 +97,7 @@ export async function submitGuess(amount: number): Promise<PuzzleState> {
       const bucket = game.status === "won" ? game.guesses.length : 6;
       // Awaited so the community counts we read back include this result.
       try {
-        await recordResult(puzzle.puzzle_date, game.status === "won", bucket);
+        await recordResult(puzzle.puzzle_date, game.status === "won", bucket, sessionId);
       } catch {
         // best-effort: never let community-stats reporting break gameplay
       }

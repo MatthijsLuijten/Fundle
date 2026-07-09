@@ -49,11 +49,17 @@ export async function fetchTodayPuzzleRow(): Promise<PuzzleRow> {
   return row;
 }
 
-export async function recordResult(date: string, won: boolean, guesses: number): Promise<void> {
+export async function recordResult(
+  date: string,
+  won: boolean,
+  guesses: number,
+  sessionId: string
+): Promise<void> {
   const { error } = await getClient().rpc("record_result", {
     p_date: date,
     p_won: won,
     p_guesses: guesses,
+    p_session_id: sessionId,
   });
   if (error) throw error;
 }

@@ -55,17 +55,20 @@ uv run --project apps/api python scripts/build_daily_puzzle.py --random
 Puzzle day boundaries use **Europe/Amsterdam** (midnight NL time), not UTC. The
 puzzle is published to Supabase, not a local DB.
 
-Build/refresh today's puzzle from Funda (from the project root, with Supabase env set):
+Build/refresh puzzles from Funda (from the project root, with Supabase env set):
 
 ```bash
-uv run --project apps/api python scripts/build_daily_puzzle.py          # today
-uv run --project apps/api python scripts/build_daily_puzzle.py --force   # rebuild
+uv run --project apps/api python scripts/build_daily_puzzle.py           # ensure today + tomorrow
+uv run --project apps/api python scripts/build_daily_puzzle.py --force   # rebuild today
+uv run --project apps/api python scripts/build_daily_puzzle.py --date 2026-07-14 --force
 ```
 
 **Production:** the [`build-puzzle`](.github/workflows/build-puzzle.yml) GitHub
-Action runs daily at Amsterdam midnight (22:00/23:00 UTC depending on DST) and upserts the
-puzzle into Supabase. Trigger it manually from the Actions tab (`workflow_dispatch`)
-to seed/backfill. No server, no cron host needed.
+Action **pre-builds tomorrow's puzzle the evening before** (triggered by a
+Supabase pg_cron job, with a retry slot; a GitHub morning cron is the safety
+net), so the new puzzle goes live at Amsterdam midnight just by already being
+in Supabase. Trigger it manually from the Actions tab (`workflow_dispatch`) to
+seed/backfill. No server, no cron host needed.
 
 ## Project layout
 

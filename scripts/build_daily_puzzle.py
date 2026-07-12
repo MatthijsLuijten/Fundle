@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
-"""Build the daily puzzle and publish it to Supabase. Run via cron once per day.
+"""Build daily puzzles and publish them to Supabase. Run via cron once per day.
 
-Idempotent: skips when a puzzle already exists for the date unless --force.
+Default run ensures a puzzle exists for **today** (backfill safety net) and
+**tomorrow** (pre-build), so the new puzzle is already in the database when the
+Amsterdam date flips at midnight. Idempotent: existing dates are skipped, and
+transient Funda failures are retried with backoff.
 
 Usage:
-  python build_daily_puzzle.py [--date YYYY-MM-DD] [--force]
+  python build_daily_puzzle.py                    # ensure today + tomorrow
+  python build_daily_puzzle.py --date YYYY-MM-DD  # single date
+  python build_daily_puzzle.py --force            # rebuild today (or --date)
   python build_daily_puzzle.py --random   # dev: live Funda pick, JSON on stdout, no DB
 
 Requires env (loaded from apps/api/.env locally, or GitHub Actions secrets):
@@ -16,7 +21,8 @@ import argparse
 import json
 import os
 import sys
-from datetime import date
+import time
+from datetime import date, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,6 +41,12 @@ from app.puzzle_date import today_date  # noqa: E402
 from app.services.puzzle_builder import build_live_puzzle  # noqa: E402
 
 PUZZLE_EPOCH = date(2026, 1, 1)
+
+# Funda's search backend fails transiently (~1 in 5 runs historically); a
+# fresh attempt almost always succeeds. Retry the whole build with backoff
+# before letting the job fail: 30s + 60s + 120s ≈ 3.5 min worst case.
+BUILD_ATTEMPTS = 4
+BACKOFF_BASE_SECONDS = 30
 
 
 def puzzle_number_for_date(puzzle_date: date) -> int:
@@ -64,8 +76,25 @@ def _puzzle_exists(base_url: str, headers: dict, puzzle_date: date) -> bool:
     return bool(resp.json())
 
 
+def _build_with_retry(puzzle_date: date) -> tuple[int, int, dict]:
+    for attempt in range(1, BUILD_ATTEMPTS + 1):
+        try:
+            return build_live_puzzle(puzzle_date)
+        except Exception as exc:
+            if attempt == BUILD_ATTEMPTS:
+                raise
+            wait = BACKOFF_BASE_SECONDS * 2 ** (attempt - 1)
+            print(
+                f"⚠️  Build attempt {attempt}/{BUILD_ATTEMPTS} failed ({exc}); retrying in {wait}s...",
+                file=sys.stderr,
+                flush=True,
+            )
+            time.sleep(wait)
+    raise AssertionError("unreachable")
+
+
 def _build_and_upsert(base_url: str, headers: dict, puzzle_date: date) -> None:
-    global_id, answer, payload = build_live_puzzle(puzzle_date)
+    global_id, answer, payload = _build_with_retry(puzzle_date)
     row = {
         "puzzle_date": puzzle_date.isoformat(),
         "puzzle_number": puzzle_number_for_date(puzzle_date),
@@ -98,7 +127,7 @@ def main() -> None:
         "--date",
         type=date.fromisoformat,
         default=None,
-        help="Puzzle date (default: today in Europe/Amsterdam)",
+        help="Build only this date (default: ensure today and tomorrow, Europe/Amsterdam)",
     )
     parser.add_argument("--force", action="store_true", help="Replace existing puzzle")
     parser.add_argument(
@@ -120,12 +149,21 @@ def main() -> None:
         "Content-Type": "application/json",
     }
 
-    puzzle_date = args.date or today_date()
-    if not args.force and _puzzle_exists(base_url, headers, puzzle_date):
-        print(f"Puzzle for {puzzle_date} already exists; skipping (use --force to rebuild).")
-        return
+    if args.date is not None:
+        puzzle_dates = [args.date]
+    elif args.force:
+        # Bare --force keeps its historical meaning: rebuild today only.
+        puzzle_dates = [today_date()]
+    else:
+        # Backfill today if somehow missing, then pre-build tomorrow so the
+        # new puzzle is live the moment the Amsterdam date flips.
+        puzzle_dates = [today_date(), today_date() + timedelta(days=1)]
 
-    _build_and_upsert(base_url, headers, puzzle_date)
+    for puzzle_date in puzzle_dates:
+        if not args.force and _puzzle_exists(base_url, headers, puzzle_date):
+            print(f"Puzzle for {puzzle_date} already exists; skipping (use --force to rebuild).")
+            continue
+        _build_and_upsert(base_url, headers, puzzle_date)
 
 
 if __name__ == "__main__":

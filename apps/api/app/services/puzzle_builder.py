@@ -346,7 +346,10 @@ def build_live_puzzle(puzzle_date: date) -> tuple[int, int, dict]:
     if amount is None:
         raise RuntimeError("Listing has no price")
     city = listing.city or "Unknown"
-    print(f"\033[92m✓ Puzzle: €{amount:,} ({city})\033[0m", file=sys.stderr, flush=True)
+    # GitHub Actions logs are public; never print the answer there. Locally the
+    # price is handy for debugging.
+    price_str = "€<hidden>" if os.environ.get("GITHUB_ACTIONS") == "true" else f"€{amount:,}"
+    print(f"\033[92m✓ Puzzle: {price_str} ({city})\033[0m", file=sys.stderr, flush=True)
     return listing.global_id or int(listing.id), amount, listing_to_payload(listing)
 
 

@@ -80,9 +80,15 @@ def _build_and_upsert(base_url: str, headers: dict, puzzle_date: date) -> None:
         timeout=60,
     )
     resp.raise_for_status()
+    # GitHub Actions logs are public; never print the answer there. The
+    # global_id also reveals the price (it resolves to the Funda listing), so
+    # hide it too; city alone is enough for devs to cross-reference.
+    in_ci = os.environ.get("GITHUB_ACTIONS") == "true"
+    answer_str = "€<hidden>" if in_ci else f"€{answer:,}"
+    global_id_str = "<hidden>" if in_ci else str(global_id)
     print(
         f"✓ Published puzzle {puzzle_date}: #{row['puzzle_number']} "
-        f"global_id={global_id} answer=€{answer:,} city={payload.get('city')}"
+        f"global_id={global_id_str} answer={answer_str} city={payload.get('city')}"
     )
 
 

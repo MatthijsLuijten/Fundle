@@ -204,7 +204,19 @@ def _search_candidates(
         filters["min_price"] = min_price
     if max_price is not None:
         filters["max_price"] = max_price
-    results = client.search(**filters)
+    from funda.exceptions import SearchError
+
+    try:
+        results = client.search(**filters)
+    except SearchError as exc:
+        # Funda's Elasticsearch backend intermittently 400s ("all shards
+        # failed"), most often on deep pages. Treat it as an empty page so the
+        # caller retries a different (shallower) page instead of aborting the
+        # whole build.
+        msg = f"⚠️  Funda search failed on page {page}: {exc}"
+        logger.warning(msg)
+        print(msg, file=sys.stderr, flush=True)
+        return []
     return [r for r in results if _is_valid_buy_listing(r)]
 
 
@@ -298,5 +310,8 @@ def build_live_puzzle(puzzle_date: date) -> tuple[int, int, dict]:
     if amount is None:
         raise RuntimeError("Listing has no price")
     city = listing.city or "Unknown"
-    print(f"\033[92m✓ Puzzle: €{amount:,} ({city})\033[0m", file=sys.stderr, flush=True)
+    # GitHub Actions logs are public; never print the answer there. Locally the
+    # price is handy for debugging.
+    price_str = "€<hidden>" if os.environ.get("GITHUB_ACTIONS") == "true" else f"€{amount:,}"
+    print(f"\033[92m✓ Puzzle: {price_str} ({city})\033[0m", file=sys.stderr, flush=True)
     return listing.global_id or int(listing.id), amount, listing_to_payload(listing)

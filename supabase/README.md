@@ -14,9 +14,10 @@ order.
 
 ### `0001_daily_puzzle_cron.sql` — daily puzzle trigger
 
-Fires the **Build daily puzzle** GitHub Actions workflow at Amsterdam midnight
-using `pg_cron` + `pg_net`, instead of relying on GitHub's own cron (which is
-best-effort and often 15+ minutes late). One-time setup:
+Fires the **Build daily puzzle** GitHub Actions workflow using `pg_cron` +
+`pg_net`, instead of relying on GitHub's own cron (which is best-effort, often
+15+ minutes late, and auto-disabled after 60 days of repo inactivity). The
+schedule times set here are superseded by `0003`. One-time setup:
 
 1. **Create a GitHub token** that can start the workflow.
    - GitHub → Settings → Developer settings → **Fine-grained tokens** → Generate.
@@ -92,13 +93,38 @@ from (
 where s.puzzle_date = agg.puzzle_date;
 ```
 
+### `0003_evening_prebuild_cron.sql` — evening pre-build
+
+Reliability rework of the `0001` schedule. The build script now pre-builds
+**tomorrow's** puzzle (and backfills today's if missing), so the new puzzle is
+already in `daily_puzzles` when the Amsterdam date flips — release at exactly
+00:00 is just the app querying by `puzzle_date`; nothing has to succeed at
+midnight anymore. This migration therefore:
+
+- unschedules the midnight pair (`daily-puzzle-build-cest`/`-cet`);
+- schedules `daily-puzzle-prebuild` at 19:01 UTC (Amsterdam evening in both
+  CET and CEST — exact time no longer matters);
+- schedules `daily-puzzle-prebuild-retry` at 21:31 UTC, a no-op when the first
+  run succeeded, a fresh build if it didn't.
+
+Combined with in-process retries in the build script (Funda's search API fails
+transiently), a puzzle can only be missing at midnight if Funda is down across
+both evening windows *and* all retries — and even then the GitHub morning cron
+backfills it.
+
+Apply by pasting the file into the SQL editor. Verify with the same queries as
+`0001` (job names are now `daily-puzzle-prebuild*`).
+
 ### Notes
 
 - If you fork to a different repo, update the `url` in
   `trigger_daily_puzzle_build()` and the `ref` (default branch) if it isn't
   `main`.
 - The GitHub Actions workflow keeps a single daily **safety-net** cron
-  (`5 6 * * *`) in case this trigger ever fails; the build script is idempotent,
-  so it's a no-op on normal days.
-- To change times: `select cron.unschedule('daily-puzzle-build-cest');` then
+  (`5 6 * * *`) in case this trigger path ever breaks (e.g. expired PAT); the
+  build script is idempotent, so it's a no-op on normal days.
+- The fine-grained GitHub PAT in Vault **expires** (max 1 year). When the
+  dispatches start failing (`401` in `net._http_response`), generate a new
+  token and update the `github_pat_build_puzzle` Vault secret.
+- To change times: `select cron.unschedule('daily-puzzle-prebuild');` then
   re-run the relevant `cron.schedule(...)`.

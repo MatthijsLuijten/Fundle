@@ -45,7 +45,7 @@ const ICONS: Record<string, LucideIcon> = {
   sustainability: Sparkles,
 };
 
-const WRAP_KEYS = new Set(["neighbourhood"]);
+const WRAP_KEYS = new Set(["city", "neighbourhood"]);
 
 function formatValue(key: string, value: string | number): string {
   if (key === "living_area" || key === "plot_area") return `${value} m²`;

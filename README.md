@@ -70,24 +70,22 @@ to seed/backfill. No server, no cron host needed.
 ## Project layout
 
 ```
-apps/api/     pyfunda scraping + puzzle builder (+ retained game.py for parity fixtures)
+apps/api/     pyfunda + daily puzzle builder (no server; runs in CI)
 apps/web/     Next.js UI + client-side game engine (lib/engine.ts)
-scripts/      build_daily_puzzle.py (Supabase publish), gen_parity_fixtures.py
+scripts/      build_daily_puzzle.py (Supabase publish)
 supabase/     schema.sql (tables, RLS, stats RPC) — run once in the dashboard
 ```
 
 ## Testing
 
 ```bash
-cd apps/api && uv run pytest && uv run ruff check app tests   # builder + obfuscation + game logic
-cd apps/web && npm test                                       # TS engine + cross-language parity
+cd apps/api && uv run pytest && uv run ruff check app tests   # builder + obfuscation + price buckets
+cd apps/web && npm test                                       # TS engine + golden fixtures
 ```
 
-If you change game logic on either side, regenerate parity fixtures:
-
-```bash
-uv run --project apps/api python scripts/gen_parity_fixtures.py
-```
+Gameplay logic lives only in `apps/web/lib/engine.ts`. Its output is pinned by the
+golden fixtures in `apps/web/lib/__fixtures__/parity.json`; if you deliberately
+change engine behavior, update that file by hand and review the diff.
 
 ## License note
 

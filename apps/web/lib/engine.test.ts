@@ -62,7 +62,11 @@ describe("formatListedAgo", () => {
   });
 });
 
-describe("parity with backend game.py", () => {
+// parity.json is a frozen golden fixture: it was generated once from the old
+// Python reference implementation (since removed) and is now checked in as the
+// source of truth for engine.ts's output. Regenerate only if you deliberately
+// change engine behavior — and review the diff carefully.
+describe("golden PuzzleState fixtures", () => {
   for (const fx of fixtures as Array<{
     name: string;
     puzzle: Puzzle;

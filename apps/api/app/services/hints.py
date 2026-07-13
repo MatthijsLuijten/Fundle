@@ -1,20 +1,12 @@
-"""Build progressive hint tiers from a listing payload (no price)."""
+"""Serialize a Funda listing into the puzzle payload stored in Supabase.
 
-from datetime import date, datetime
+The payload holds every field the client engine (apps/web/lib/engine.ts) later
+reveals as progressive hints — but never the answer price. The hint-tiering and
+display logic lives only on the TS side now; this module just produces the raw
+fields it consumes.
+"""
+
 from typing import Any
-
-from app.puzzle_date import today_date
-
-MAX_HINT_LEVEL = 4
-MAX_GUESSES = 5
-
-HINT_KEYS_BY_LEVEL: dict[int, list[str]] = {
-    0: ["object_type", "city", "province"],
-    1: ["living_area", "energy_label"],
-    2: ["construction_year", "rooms_count"],
-    3: ["bedrooms", "insulation"],
-    4: ["neighbourhood", "plot_area", "house_type", "sustainability_measures"],
-}
 
 _SUSTAINABILITY_FLAGS: dict[str, str] = {
     "has_solar_panels": "Zonnepanelen",
@@ -39,40 +31,6 @@ def _characteristic_value(listing: Any, label: str) -> str | None:
     if not text or text.casefold() == "wat betekent dit?":
         return None
     return text
-
-
-def format_listed_ago(
-    publication_date: str | None,
-    *,
-    reference: date | None = None,
-) -> str | None:
-    """Human-readable time since the listing was published."""
-    if not publication_date:
-        return None
-    try:
-        published = datetime.fromisoformat(publication_date.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-
-    today = reference or today_date()
-    published_date = published.date()
-    days = (today - published_date).days
-    if days < 0:
-        return None
-    if days == 0:
-        return "Vandaag online gezet"
-    if days == 1:
-        return "Gisteren online gezet"
-    if days < 7:
-        return f"{days} dagen online"
-    if days < 30:
-        weeks = days // 7
-        return f"{weeks} {'week' if weeks == 1 else 'weken'} online"
-    if days < 365:
-        months = days // 30
-        return f"{months} {'maand' if months == 1 else 'maanden'} online"
-    years = days // 365
-    return f"{years} {'jaar' if years == 1 else 'jaar'} online"
 
 
 def listing_to_payload(listing: Any) -> dict[str, Any]:
@@ -114,78 +72,3 @@ def listing_to_payload(listing: Any) -> dict[str, Any]:
         "publication_date": listing.publication_date,
         "highlight": listing.highlight,
     }
-
-
-def _hint_value_present(value: Any) -> bool:
-    if value is None or value == "":
-        return False
-    if isinstance(value, list):
-        return bool(value)
-    return True
-
-
-def hints_for_level(payload: dict[str, Any], hint_level: int) -> dict[str, Any]:
-    """Return cumulative hints up to hint_level."""
-    out: dict[str, Any] = {}
-    for level in range(min(hint_level, MAX_HINT_LEVEL) + 1):
-        for key in HINT_KEYS_BY_LEVEL.get(level, []):
-            value = payload.get(key)
-            if _hint_value_present(value):
-                out[key] = value
-    return out
-
-
-def format_object_type(value: str | None) -> str:
-    return {"house": "Woning", "apartment": "Appartement"}.get(value or "", value or "Onbekend")
-
-
-def hints_at_level(payload: dict[str, Any], hint_level: int) -> dict[str, Any]:
-    """Raw hints unlocked at a single level only."""
-    out: dict[str, Any] = {}
-    for key in HINT_KEYS_BY_LEVEL.get(hint_level, []):
-        value = payload.get(key)
-        if _hint_value_present(value):
-            out[key] = value
-    return out
-
-
-def new_hints_for_level(
-    payload: dict[str, Any],
-    hint_level: int,
-    guesses_count: int,
-    *,
-    status: str = "playing",
-) -> dict[str, Any]:
-    """Hints that just appeared after the latest guess (none on initial load)."""
-    if guesses_count == 0:
-        return {}
-    if status == "won":
-        prev_level = min(guesses_count - 1, MAX_HINT_LEVEL)
-        prev = humanize_hints(hints_for_level(payload, prev_level))
-        all_hints = humanize_hints(hints_for_level(payload, MAX_HINT_LEVEL))
-        return {k: v for k, v in all_hints.items() if k not in prev}
-    return humanize_hints(hints_at_level(payload, hint_level))
-
-
-def humanize_hints(hints: dict[str, Any]) -> dict[str, Any]:
-    """Add display-friendly labels for the frontend."""
-    display: dict[str, Any] = {}
-    if "object_type" in hints:
-        display["property"] = format_object_type(hints["object_type"])
-    for key in ("city", "province", "neighbourhood", "living_area", "plot_area", "energy_label"):
-        if key in hints:
-            display[key] = hints[key]
-    if "bedrooms" in hints:
-        display["bedrooms"] = hints["bedrooms"]
-    if "rooms_count" in hints:
-        display["rooms"] = hints["rooms_count"]
-    if "construction_year" in hints:
-        display["year"] = hints["construction_year"]
-    if "house_type" in hints:
-        display["house_type"] = hints["house_type"]
-    if "insulation" in hints:
-        display["insulation"] = hints["insulation"]
-    measures = hints.get("sustainability_measures")
-    if measures:
-        display["sustainability"] = " · ".join(measures)
-    return display

@@ -45,6 +45,8 @@ const ICONS: Record<string, LucideIcon> = {
   sustainability: Sparkles,
 };
 
+const WRAP_KEYS = new Set(["neighbourhood"]);
+
 function formatValue(key: string, value: string | number): string {
   if (key === "living_area" || key === "plot_area") return `${value} m²`;
   return String(value);
@@ -73,10 +75,12 @@ export function HintPanel({
       {entries.map(([key, value]) => {
         const isNew = newKeys.has(key);
         const Icon = ICONS[key] ?? Home;
+        const displayValue = formatValue(key, value);
+        const wraps = WRAP_KEYS.has(key);
         return (
           <li
             key={key}
-            className={`relative rounded-xl px-3 pb-3 pt-2.5 transition-colors ${
+            className={`relative min-w-0 rounded-xl px-3 pb-3 pt-2.5 transition-colors ${
               isNew
                 ? "animate-fade-in-up border border-fundle-accent/30 bg-fundle-accent-muted"
                 : "surface-inset"
@@ -100,8 +104,12 @@ export function HintPanel({
               </span>
             </div>
 
-            <p className="mt-1.5 text-[15px] font-semibold leading-tight text-fundle-text">
-              {formatValue(key, value)}
+            <p
+              className={`mt-1.5 text-[15px] font-semibold text-fundle-text ${
+                wraps ? "break-words leading-snug" : "leading-tight"
+              }`}
+            >
+              {displayValue}
             </p>
           </li>
         );

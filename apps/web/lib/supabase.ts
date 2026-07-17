@@ -5,7 +5,7 @@ import { amsterdamToday } from "./engine";
 // ("supabaseUrl is required"). In the browser the public env vars are present.
 let client: SupabaseClient | null = null;
 
-function getClient(): SupabaseClient {
+export function getClient(): SupabaseClient {
   if (client) return client;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

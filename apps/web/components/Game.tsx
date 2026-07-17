@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchToday, submitGuess } from "@/lib/api";
 import { fireWinConfetti } from "@/lib/confetti";
 import { MIN_GUESS_AMOUNT, parseAmount } from "@/lib/format";
+import { saveDailyResult } from "@/lib/share";
 import { recordGameResult } from "@/lib/stats";
 import { hasSeenHelp } from "@/lib/storage";
 import type { PuzzleState } from "@/lib/types";
@@ -61,6 +62,7 @@ export function Game() {
 
     if (state.status !== "playing" && !statsRecordedRef.current) {
       recordGameResult(state.puzzle_date, state.status === "won");
+      saveDailyResult(state); // so the city reveal can include today's daily result
       statsRecordedRef.current = true;
     }
 

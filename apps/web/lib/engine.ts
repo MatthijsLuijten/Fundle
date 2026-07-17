@@ -172,6 +172,11 @@ function humanizeHints(hints: Payload): Hints {
   return display;
 }
 
+// All hints at once (city mode shows everything upfront — no progressive tiers).
+export function fullHints(payload: Payload): Hints {
+  return humanizeHints(hintsForLevel(payload, MAX_HINT_LEVEL));
+}
+
 function newHintsForLevel(
   payload: Payload,
   hintLevel: number,

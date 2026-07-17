@@ -65,6 +65,8 @@ def write_web_env(cfg: dict[str, str]) -> None:
 NEXT_PUBLIC_SUPABASE_URL={cfg["NEXT_PUBLIC_SUPABASE_URL"]}
 NEXT_PUBLIC_SUPABASE_ANON_KEY={cfg["NEXT_PUBLIC_SUPABASE_ANON_KEY"]}
 NEXT_PUBLIC_DEBUG_FRESH={cfg["DEBUG_FRESH"]}
+NEXT_PUBLIC_CITY_LOCAL={cfg.get("CITY_LOCAL", "0")}
+NEXT_PUBLIC_CITY_ENABLED={cfg.get("CITY_ENABLED", "0")}
 """
     WEB_ENV.write_text(content, encoding="utf-8")
 

@@ -1,5 +1,6 @@
 const SESSION_KEY = "fundle_session_id";
 const HELP_SEEN_KEY = "fundle_help_seen";
+const CITY_SEEN_KEY = "fundle_city_seen";
 
 export function isDebugFresh(): boolean {
   return process.env.NEXT_PUBLIC_DEBUG_FRESH === "1";
@@ -29,4 +30,16 @@ export function hasSeenHelp(): boolean {
 
 export function markHelpSeen(): void {
   localStorage.setItem(HELP_SEEN_KEY, "1");
+}
+
+// Drives the "nieuw" badge on the Steden tab — shown until the player first
+// opens city mode, then hidden for good.
+export function hasSeenCityMode(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(CITY_SEEN_KEY) === "1";
+}
+
+export function markCityModeSeen(): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(CITY_SEEN_KEY, "1");
 }

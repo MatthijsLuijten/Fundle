@@ -1,0 +1,78 @@
+name: Build city puzzles
+
+on:
+  schedule:
+    # Primary trigger is the Supabase pg_cron job (supabase/migrations/
+    # 0005_city_puzzle_cron.sql), which POSTs workflow_dispatch at Amsterdam
+    # midnight so all cities are ready long before the 18:00 reveal. This
+    # GitHub cron is only a best-effort safety net (Amsterdam 07:00/08:00). The
+    # build script is idempotent per (city, date), so a normal run is a no-op.
+    - cron: "5 6 * * *"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Puzzle date (YYYY-MM-DD, default: today in Europe/Amsterdam)"
+        required: false
+      city:
+        description: "Only build this city slug (default: all 8)"
+        required: false
+      force:
+        description: "Rebuild even if a puzzle already exists"
+        type: boolean
+        default: false
+
+concurrency:
+  group: build-city-puzzles
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # Cheap early-exit: skip the toolchain install when all cities already
+      # have today's puzzle (10 = number of cities in CITY_MODE_CITIES; keep in
+      # sync). The build step does its own authoritative per-city check; on any
+      # uncertainty we fall through and let the script decide.
+      - name: Skip if all city puzzles already exist
+        id: precheck
+        if: github.event_name != 'workflow_dispatch'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          today=$(TZ=Europe/Amsterdam date +%F)
+          count=$(curl -fsS -I \
+            "$SUPABASE_URL/rest/v1/city_puzzles?puzzle_date=eq.$today&select=city" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Prefer: count=exact" 2>/dev/null \
+            | grep -i content-range | sed -E 's/.*\///' | tr -d '\r' || echo "ERR")
+          if [ "$count" = "10" ]; then
+            echo "All 10 city puzzles for $today exist; skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Only '$count' city puzzles for $today (or check failed); building."
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install uv
+        if: steps.precheck.outputs.skip != 'true'
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        if: steps.precheck.outputs.skip != 'true'
+        run: uv sync --project apps/api
+
+      - name: Build and publish city puzzles
+        if: steps.precheck.outputs.skip != 'true'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          ARGS=""
+          if [ -n "${{ inputs.date }}" ]; then ARGS="$ARGS --date ${{ inputs.date }}"; fi
+          if [ -n "${{ inputs.city }}" ]; then ARGS="$ARGS --city ${{ inputs.city }}"; fi
+          if [ "${{ inputs.force }}" = "true" ]; then ARGS="$ARGS --force"; fi
+          uv run --project apps/api python scripts/build_city_puzzles.py $ARGS

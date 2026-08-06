@@ -83,6 +83,20 @@ describe("cityMock offline backend", () => {
     expect(r?.your_rank).toBe(r?.total_bids); // strictly worst
   });
 
+  it("keeps bidding open with ?reveal=open, whatever the clock says", async () => {
+    (globalThis as unknown as { window: { location: { search: string } } }).window.location.search =
+      "?reveal=open";
+
+    const before = await mock.revealCity(keyA);
+    expect(before?.open).toBe(true);
+    expect(before?.your_bid).toBeNull();
+
+    await mock.submitCityBid(keyA, 400000);
+    const after = await mock.revealCity(keyA);
+    expect(after?.open).toBe(true);
+    expect(after?.your_bid).toBe(400000);
+  });
+
   it("non-bidder still sees the price and field size", async () => {
     const r = await mock.revealCity(keyB);
     expect(r?.open).toBe(false);

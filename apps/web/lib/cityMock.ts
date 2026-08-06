@@ -40,6 +40,8 @@ function closesAtISO(dateStr: string): string {
 //   ?reveal=1     reveal now, real outcome from your own bid
 //   ?reveal=win   reveal now, force a winning result (no bid needed)
 //   ?reveal=lose  reveal now, force a losing result (no bid needed)
+//   ?reveal=open  the opposite: keep bidding open even after 18:00, so the
+//                 bid flow can still be tested late in the day
 function revealParam(): string | null {
   if (typeof window === "undefined") return null;
   return new URLSearchParams(window.location.search).get("reveal");
@@ -110,7 +112,9 @@ export async function revealCity(city: string): Promise<CityReveal | null> {
   const closes = closesAtISO(date);
   const mine = loadCityBid(city, date);
   const param = revealParam();
-  const isClosed = param != null || amsterdamHourNow() >= 18;
+  // ?reveal=open forces the bidding window back open regardless of the clock,
+  // so the bid flow stays testable in dev after 18:00 Amsterdam.
+  const isClosed = param !== "open" && (param != null || amsterdamHourNow() >= 18);
 
   if (!isClosed) {
     return { open: true, closes_at: closes, your_bid: mine?.bid ?? null };

@@ -20,6 +20,20 @@ export function loadCityBid(city: string, date: string): CityBidState | null {
   }
 }
 
+// Bulk read for the city picker, which needs "did I already bid here?" for
+// every city at once. Cities without a bid are simply absent from the result.
+export function loadCityBids(
+  cities: string[],
+  date: string
+): Record<string, CityBidState> {
+  const out: Record<string, CityBidState> = {};
+  for (const city of cities) {
+    const state = loadCityBid(city, date);
+    if (state) out[city] = state;
+  }
+  return out;
+}
+
 export function saveCityBid(city: string, date: string, bid: number): void {
   if (typeof window === "undefined") return;
   const state: CityBidState = { bid, submittedAt: new Date().toISOString() };

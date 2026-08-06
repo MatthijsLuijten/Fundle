@@ -31,6 +31,11 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Only the upstream repo builds production puzzles: it is the one holding
+    # the SUPABASE_* secrets. Forks inherit this schedule and would otherwise
+    # fail every morning on missing secrets. Manual dispatch still works
+    # anywhere, so a fork with its own secrets can run it on demand.
+    if: github.event_name != 'schedule' || github.repository == 'MatthijsLuijten/Fundle'
     steps:
       - uses: actions/checkout@v5
 

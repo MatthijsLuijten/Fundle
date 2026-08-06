@@ -14,7 +14,7 @@ on:
         description: "Puzzle date (YYYY-MM-DD, default: today in Europe/Amsterdam)"
         required: false
       city:
-        description: "Only build this city slug (default: all 8)"
+        description: "Only build this city slug (default: all 10)"
         required: false
       force:
         description: "Rebuild even if a puzzle already exists"
@@ -28,6 +28,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # See build-puzzle.yml: only the upstream repo has the SUPABASE_* secrets,
+    # so forks skip the inherited schedule instead of failing on it.
+    if: github.event_name != 'schedule' || github.repository == 'MatthijsLuijten/Fundle'
     steps:
       - uses: actions/checkout@v5
 

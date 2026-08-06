@@ -99,9 +99,11 @@ export function CityResultCard({
           href={fundaUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="btn-ghost mt-4 inline-flex items-center gap-1.5 text-sm text-fundle-accent"
+          // Matches the daily result card's button (ResultCard.tsx).
+          className="btn-ghost mt-4 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm"
         >
-          Bekijk op Funda <ExternalLink className="h-3.5 w-3.5" />
+          <ExternalLink className="h-4 w-4" aria-hidden />
+          Bekijk op Funda
         </a>
       )}
     </section>

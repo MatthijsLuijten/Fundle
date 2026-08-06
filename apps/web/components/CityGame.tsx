@@ -120,7 +120,7 @@ export function CityGame() {
 
   return (
     <>
-      <HowToPlayModal open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <HowToPlayModal mode="city" open={helpOpen} onClose={() => setHelpOpen(false)} />
       <div className="flex min-h-screen flex-col">
         <AppHeader
           puzzleNumber={view?.puzzle_number}
@@ -135,7 +135,7 @@ export function CityGame() {
             <button
               type="button"
               onClick={reset}
-              className="btn-ghost -mb-1 inline-flex w-fit items-center gap-1.5 text-sm text-fundle-muted hover:text-fundle-text"
+              className="btn-ghost inline-flex w-fit items-center gap-1.5 px-3 py-2 text-sm text-fundle-muted hover:text-fundle-text"
             >
               <ArrowLeft className="h-4 w-4" /> Andere stad
             </button>

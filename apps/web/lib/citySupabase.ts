@@ -29,16 +29,21 @@ function toView(row: CityPuzzleRow): CityPuzzleView {
   };
 }
 
-export async function fetchCityPuzzle(city: string): Promise<CityPuzzleView | null> {
+// City mode plays one city per day and the builder decides which, so the client
+// asks by date and learns the city from the row. Days built before that change
+// hold ten rows; ordering by city keeps those legacy days on one stable pick
+// instead of failing the query.
+export async function fetchTodayCityPuzzle(): Promise<CityPuzzleView | null> {
   const { data, error } = await getClient()
     .from("city_puzzles")
     // Explicit columns: a `select *` would fail (answer_token is not granted).
     .select("city,puzzle_date,puzzle_number,global_id,closes_at,payload")
-    .eq("city", city)
     .eq("puzzle_date", amsterdamToday())
-    .maybeSingle();
+    .order("city")
+    .limit(1);
   if (error) throw error;
-  return data ? toView(data as CityPuzzleRow) : null;
+  const row = data?.[0];
+  return row ? toView(row as CityPuzzleRow) : null;
 }
 
 export async function submitCityBid(

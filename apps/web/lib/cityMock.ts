@@ -81,6 +81,18 @@ function fixtureFor(city: string): Fixture | null {
   return CITY_FIXTURES[city] ?? null;
 }
 
+// The offline city of the day. Deterministic from the date so a reload keeps the
+// same city, but it deliberately doesn't reimplement the builder's cycle: this
+// only has to serve some city from the fixtures, not agree with production.
+export function mockCityForToday(): string {
+  const keys = Object.keys(CITY_FIXTURES).sort();
+  return keys[hashSeed(amsterdamToday()) % keys.length];
+}
+
+export async function fetchTodayCityPuzzle(): Promise<CityPuzzleView | null> {
+  return fetchCityPuzzle(mockCityForToday());
+}
+
 export async function fetchCityPuzzle(city: string): Promise<CityPuzzleView | null> {
   const fx = fixtureFor(city);
   if (!fx) return null;

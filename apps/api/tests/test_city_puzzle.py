@@ -1,14 +1,16 @@
 """Offline unit tests for city-mode building (no network)."""
 
-from datetime import date
+from datetime import date, timedelta
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
 from app.services.city_puzzle_builder import (
     CITIES_BY_KEY,
+    CITY_CYCLE_EPOCH,
     CITY_MODE_CITIES,
     REVEAL_HOUR,
     _city_matches,
+    city_for_date,
     reveal_time_for_date,
 )
 
@@ -42,3 +44,35 @@ def test_city_matches_is_case_insensitive():
     # A neighbouring municipality that leaks into the search is rejected.
     assert _city_matches(SimpleNamespace(city="Amstelveen"), "Amsterdam") is False
     assert _city_matches(SimpleNamespace(city=None), "Amsterdam") is False
+
+
+def _cycle_days(cycle: int) -> list[date]:
+    start = CITY_CYCLE_EPOCH + timedelta(days=cycle * len(CITY_MODE_CITIES))
+    return [start + timedelta(days=i) for i in range(len(CITY_MODE_CITIES))]
+
+
+def test_each_cycle_uses_every_city_exactly_once():
+    for cycle in range(25):
+        keys = [city_for_date(d).key for d in _cycle_days(cycle)]
+        assert sorted(keys) == sorted(CITIES_BY_KEY), f"cycle {cycle} is not a permutation"
+
+
+def test_city_for_date_is_stable():
+    # Same date always gives the same city; the builder and any backfill have to
+    # agree without storing state anywhere.
+    day = date(2026, 8, 20)
+    assert city_for_date(day).key == city_for_date(day).key
+    assert city_for_date(day) in CITY_MODE_CITIES
+
+
+def test_cycles_are_not_all_the_same_order():
+    # A fixed rotation would make tomorrow's city guessable from today's.
+    first = [city_for_date(d).key for d in _cycle_days(0)]
+    later = [[city_for_date(d).key for d in _cycle_days(c)] for c in range(1, 10)]
+    assert any(order != first for order in later)
+
+
+def test_dates_before_the_epoch_still_resolve():
+    # divmod floors, so a negative day index stays in range instead of raising.
+    assert city_for_date(CITY_CYCLE_EPOCH - timedelta(days=1)) in CITY_MODE_CITIES
+    assert city_for_date(CITY_CYCLE_EPOCH - timedelta(days=37)) in CITY_MODE_CITIES

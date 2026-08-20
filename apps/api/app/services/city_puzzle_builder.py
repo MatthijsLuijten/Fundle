@@ -1,4 +1,5 @@
-"""Build city-mode puzzles: one currently-available Funda listing per city.
+"""Build city-mode puzzles: one currently-available Funda listing, in the city
+whose turn it is that day (see city_for_date).
 
 Reuses the daily builder's listing validation, but selects by city instead of
 price bucket, and is price-agnostic (city mode isn't difficulty-tuned; you bid
@@ -12,6 +13,7 @@ carries a pool of local broker ids and we draw from their for-sale feeds.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import random
 import sys
@@ -65,6 +67,30 @@ CITY_MODE_CITIES: list[City] = [
     City("nijmegen", "Nijmegen", ("13117", "13080", "13106", "13036", "63898")),
 ]
 CITIES_BY_KEY: dict[str, City] = {c.key: c for c in CITY_MODE_CITIES}
+
+# City mode runs one city per day, not all ten at once. Days are grouped into
+# cycles of len(CITY_MODE_CITIES); each cycle uses every city exactly once, in an
+# order derived from the cycle number. So no city goes missing for long, but
+# tomorrow's city can't be read off today's.
+CITY_CYCLE_EPOCH = date(2026, 1, 1)
+
+
+def _cycle_order(cycle: int) -> list[City]:
+    """The city order for one cycle: a shuffle that depends only on the number.
+
+    Ordering by a hash keeps this stable across Python versions and trivially
+    reproducible elsewhere, which random.shuffle(seed) would not guarantee.
+    """
+    return sorted(
+        CITY_MODE_CITIES,
+        key=lambda c: hashlib.sha256(f"{cycle}:{c.key}".encode()).hexdigest(),
+    )
+
+
+def city_for_date(puzzle_date: date) -> City:
+    """The single city played on this date."""
+    cycle, offset = divmod((puzzle_date - CITY_CYCLE_EPOCH).days, len(CITY_MODE_CITIES))
+    return _cycle_order(cycle)[offset]
 
 
 def reveal_time_for_date(puzzle_date: date) -> datetime:

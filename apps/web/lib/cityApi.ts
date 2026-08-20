@@ -13,8 +13,10 @@ export function isCityLocal(): boolean {
   return process.env.NEXT_PUBLIC_CITY_LOCAL === "1";
 }
 
-export function fetchCityPuzzle(city: string): Promise<CityPuzzleView | null> {
-  return isCityLocal() ? mock.fetchCityPuzzle(city) : remote.fetchCityPuzzle(city);
+// City mode plays one city per day; which one is the builder's call, so the UI
+// asks for "today's" puzzle and reads the city off the result.
+export function fetchTodayCityPuzzle(): Promise<CityPuzzleView | null> {
+  return isCityLocal() ? mock.fetchTodayCityPuzzle() : remote.fetchTodayCityPuzzle();
 }
 
 export async function submitCityBid(city: string, amount: number): Promise<number> {

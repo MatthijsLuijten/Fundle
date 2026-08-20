@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Build city-mode puzzles (one listing per city) and publish to Supabase.
+"""Build the city-mode puzzle for a date and publish it to Supabase.
 
-Mirrors build_daily_puzzle.py but authors a row per city into city_puzzles, each
-with closes_at = 18:00 Europe/Amsterdam on the puzzle date. Idempotent per
-(city, date): skips cities that already have a puzzle unless --force.
+City mode plays one city per day, picked by city_for_date, so a normal run
+authors a single city_puzzles row with closes_at = 18:00 Europe/Amsterdam on the
+puzzle date. Idempotent per (city, date): skips a city that already has a puzzle
+unless --force. Pass --city to build a different city than the day's own, which
+only makes sense for backfills and manual fixes.
 
 Usage:
   python build_city_puzzles.py [--date YYYY-MM-DD] [--force] [--city SLUG]
@@ -34,9 +36,9 @@ from app.obfuscate import obfuscate  # noqa: E402
 from app.puzzle_date import today_date  # noqa: E402
 from app.services.city_puzzle_builder import (  # noqa: E402
     CITIES_BY_KEY,
-    CITY_MODE_CITIES,
     City,
     build_city_live_puzzle,
+    city_for_date,
     reveal_time_for_date,
 )
 
@@ -96,9 +98,9 @@ def _build_and_upsert(base_url: str, headers: dict, city: City, puzzle_date: dat
     )
 
 
-def _selected_cities(city_arg: str | None) -> list[City]:
+def _selected_city(city_arg: str | None, puzzle_date: date) -> City:
     if city_arg is None:
-        return CITY_MODE_CITIES
+        return city_for_date(puzzle_date)
     city = CITIES_BY_KEY.get(city_arg)
     if city is None:
         print(
@@ -106,14 +108,18 @@ def _selected_cities(city_arg: str | None) -> list[City]:
             file=sys.stderr,
         )
         sys.exit(1)
-    return [city]
+    return city
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build Fundle city puzzles")
     parser.add_argument("--date", type=date.fromisoformat, default=None)
     parser.add_argument("--force", action="store_true", help="Replace existing puzzles")
-    parser.add_argument("--city", default=None, help="Only build this city slug")
+    parser.add_argument(
+        "--city",
+        default=None,
+        help="Build this city instead of the one whose turn it is (backfills, fixes)",
+    )
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -121,24 +127,23 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    cities = _selected_cities(args.city)
     puzzle_date = args.date or today_date()
+    city = _selected_city(args.city, puzzle_date)
 
     if args.dry_run:
-        for city in cities:
-            global_id, answer, payload = build_city_live_puzzle(city)
-            print(
-                json.dumps(
-                    {
-                        "city": city.key,
-                        "global_id": global_id,
-                        "answer_eur": answer,
-                        "closes_at": reveal_time_for_date(puzzle_date).isoformat(),
-                        "payload_city": payload.get("city"),
-                        "photo_count": payload.get("photo_count"),
-                    }
-                )
+        global_id, answer, payload = build_city_live_puzzle(city)
+        print(
+            json.dumps(
+                {
+                    "city": city.key,
+                    "global_id": global_id,
+                    "answer_eur": answer,
+                    "closes_at": reveal_time_for_date(puzzle_date).isoformat(),
+                    "payload_city": payload.get("city"),
+                    "photo_count": payload.get("photo_count"),
+                }
             )
+        )
         return
 
     base_url, key = _require_env()
@@ -148,18 +153,14 @@ def main() -> None:
         "Content-Type": "application/json",
     }
 
-    failures = 0
-    for city in cities:
-        if not args.force and _puzzle_exists(base_url, headers, city, puzzle_date):
-            print(f"{city.display} {puzzle_date} already exists; skipping.")
-            continue
-        try:
-            _build_and_upsert(base_url, headers, city, puzzle_date)
-        except Exception as exc:  # keep going so one bad city doesn't block the rest
-            failures += 1
-            print(f"❌ {city.display} failed: {exc}", file=sys.stderr)
+    if not args.force and _puzzle_exists(base_url, headers, city, puzzle_date):
+        print(f"{city.display} {puzzle_date} already exists; skipping.")
+        return
 
-    if failures:
+    try:
+        _build_and_upsert(base_url, headers, city, puzzle_date)
+    except Exception as exc:
+        print(f"❌ {city.display} failed: {exc}", file=sys.stderr)
         sys.exit(1)
 
 

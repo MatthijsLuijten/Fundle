@@ -20,11 +20,13 @@ def test_cities_have_unique_keys():
     assert set(keys) == set(CITIES_BY_KEY)
 
 
-def test_den_haag_uses_hyphen_slug():
-    # Funda's search location only lowercases; spaces must already be hyphens.
-    den_haag = CITIES_BY_KEY["den-haag"]
-    assert den_haag.funda_location == "den-haag"
-    assert den_haag.display == "Den Haag"
+def test_every_city_has_a_broker_pool():
+    # Listings are drawn from these agencies' for-sale feeds, so an empty pool
+    # means that city can never build. Several per city tolerates one going quiet.
+    for city in CITY_MODE_CITIES:
+        assert len(city.broker_ids) >= 2, city.key
+        assert len(set(city.broker_ids)) == len(city.broker_ids), city.key
+    assert CITIES_BY_KEY["den-haag"].display == "Den Haag"
 
 
 def test_reveal_time_is_18_amsterdam():

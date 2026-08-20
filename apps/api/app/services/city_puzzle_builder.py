@@ -1,8 +1,13 @@
 """Build city-mode puzzles: one currently-available Funda listing per city.
 
-Reuses the daily builder's listing validation + detail-fetch helpers, but selects
-by city (Funda `search(location=...)`) instead of price bucket, and is price-
-agnostic (city mode isn't difficulty-tuned; you bid on whatever is for sale).
+Reuses the daily builder's listing validation, but selects by city instead of
+price bucket, and is price-agnostic (city mode isn't difficulty-tuned; you bid
+on whatever is for sale).
+
+Funda's search API is behind Firebase App Check since 2026-08-18 (see the note
+in puzzle_builder), so `search(location=...)` is no longer usable. Estate agents
+are city-anchored, and the broker-listings endpoint is still open, so each city
+carries a pool of local broker ids and we draw from their for-sale feeds.
 """
 
 from __future__ import annotations
@@ -16,12 +21,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from app.services.hints import listing_to_payload
-from app.services.puzzle_builder import (
-    _PAGE_ATTEMPTS,
-    _SEARCH_SORT,
-    _is_valid_buy_listing,
-    _pick_listing_detail,
-)
+from app.services.puzzle_builder import _is_valid_buy_listing
 
 logger = logging.getLogger(__name__)
 
@@ -33,31 +33,36 @@ PUZZLE_TIMEZONE = ZoneInfo("Europe/Amsterdam")
 # would only change how this is computed, nothing downstream.
 REVEAL_HOUR = 18
 
-# Cities have far fewer listings than all-NL, so probe a smaller page range.
-_CITY_MAX_SEARCH_PAGE = 40
 # Floor to skip parking spots / storage boxes that slip through as "buy".
 _CITY_MIN_PRICE = 100_000
+# Broker feeds use Funda's raw vocabulary, not the normalized listing statuses.
+_BROKER_FOR_SALE = "for_sale"
+# Detail fetches per city before giving up on a broker and trying the next.
+_DETAIL_PICK_LIMIT = 8
 
 
 @dataclass(frozen=True)
 class City:
     key: str  # stable slug: DB key, frontend id, localStorage namespace
     display: str  # human name; also the value Funda returns as listing.city
-    funda_location: str  # search slug passed to Funda `search(location=...)`
+    # Funda broker ids for agencies active in this city, most productive first.
+    # Harvested from past puzzles in this city; each carries tens to hundreds of
+    # for-sale listings. Several per city so one agency going quiet is harmless.
+    broker_ids: tuple[str, ...]
 
 
 # Cities offered in city mode (arbitrary selection; add/remove freely).
 CITY_MODE_CITIES: list[City] = [
-    City("amsterdam", "Amsterdam", "amsterdam"),
-    City("rotterdam", "Rotterdam", "rotterdam"),
-    City("den-haag", "Den Haag", "den-haag"),
-    City("utrecht", "Utrecht", "utrecht"),
-    City("eindhoven", "Eindhoven", "eindhoven"),
-    City("groningen", "Groningen", "groningen"),
-    City("tilburg", "Tilburg", "tilburg"),
-    City("almere", "Almere", "almere"),
-    City("den-bosch", "Den Bosch", "den-bosch"),
-    City("nijmegen", "Nijmegen", "nijmegen"),
+    City("amsterdam", "Amsterdam", ("24599", "60557", "24824", "24463", "24633")),
+    City("rotterdam", "Rotterdam", ("22192", "22230", "63005", "60526", "62826")),
+    City("den-haag", "Den Haag", ("8587", "8629", "8346", "55067", "8330")),
+    City("utrecht", "Utrecht", ("17385", "17429", "17477", "17123", "17422")),
+    City("eindhoven", "Eindhoven", ("14269", "14111", "14029", "14106", "14164")),
+    City("groningen", "Groningen", ("9181", "9231", "80868", "9050", "9125")),
+    City("tilburg", "Tilburg", ("19268", "19222", "19208", "19259", "19283")),
+    City("almere", "Almere", ("26070", "26056", "26102", "63488", "15406")),
+    City("den-bosch", "Den Bosch", ("11133", "11088", "11204", "11150", "11219")),
+    City("nijmegen", "Nijmegen", ("13117", "13080", "13106", "13036", "63898")),
 ]
 CITIES_BY_KEY: dict[str, City] = {c.key: c for c in CITY_MODE_CITIES}
 
@@ -72,38 +77,69 @@ def _city_matches(listing: Any, display: str) -> bool:
     return bool(city) and city.casefold() == display.casefold()
 
 
-def _search_city_candidates(client: Any, *, location: str, page: int) -> list[Any]:
-    results = client.search(location, category="buy", sort=_SEARCH_SORT, page=page)
-    return [r for r in results if _is_valid_buy_listing(r)]
+def _broker_for_sale_in_city(client: Any, broker_id: str, city: City) -> list[int]:
+    """global_ids this broker currently has for sale inside the city itself."""
+    try:
+        listings = client.broker_listings(broker_id)
+    except Exception as exc:
+        msg = f"⚠️  Broker {broker_id} feed failed for {city.key}: {exc}"
+        logger.warning(msg)
+        print(msg, file=sys.stderr, flush=True)
+        return []
+
+    global_ids = []
+    for entry in listings:
+        if entry.get("status") != _BROKER_FOR_SALE:
+            continue
+        entry_city = entry.get("city") or ""
+        if entry_city.casefold() != city.display.casefold():
+            continue
+        price = entry.get("price")
+        if not price or price < _CITY_MIN_PRICE:
+            continue
+        global_id = entry.get("listing_id")
+        if global_id:
+            global_ids.append(global_id)
+    return global_ids
 
 
-def _city_candidates_from_random_page(client: Any, *, location: str) -> list[Any]:
-    upper = _CITY_MAX_SEARCH_PAGE
-    for _ in range(_PAGE_ATTEMPTS):
-        page = random.randint(0, upper)
-        candidates = _search_city_candidates(client, location=location, page=page)
-        if candidates:
-            return candidates
-        if page == 0:
-            break
-        upper = min(upper, max(0, page - 1))
-    return []
+def _pick_city_detail(client: Any, global_ids: list[int], city: City) -> Any | None:
+    """Fetch details until one passes full validation for this city."""
+    shuffled = list(global_ids)
+    random.shuffle(shuffled)
+    for global_id in shuffled[:_DETAIL_PICK_LIMIT]:
+        try:
+            detail = client.listing(global_id)
+        except Exception:
+            continue
+        # The broker feed can lag Funda's own listing state, so re-check status
+        # on the detail rather than trusting the feed.
+        if getattr(detail, "status", None) != "available":
+            continue
+        if not _is_valid_buy_listing(detail, strict_existing=True):
+            continue
+        if not _city_matches(detail, city.display):
+            continue
+        if detail.price.amount < _CITY_MIN_PRICE:
+            continue
+        return detail
+    return None
 
 
 def fetch_random_listing_for_city(city: City) -> Any:
     """Pick a random currently-available buy listing in the given city."""
     from funda import Funda
 
+    brokers = list(city.broker_ids)
+    random.shuffle(brokers)
+
     with Funda() as client:
-        for _ in range(_PAGE_ATTEMPTS):
-            candidates = _city_candidates_from_random_page(client, location=city.funda_location)
-            candidates = [c for c in candidates if _city_matches(c, city.display)]
-            if not candidates:
+        for broker_id in brokers:
+            global_ids = _broker_for_sale_in_city(client, broker_id, city)
+            if not global_ids:
                 continue
-            detail = _pick_listing_detail(
-                client, candidates, min_price=_CITY_MIN_PRICE, max_price=None
-            )
-            if detail is not None and _city_matches(detail, city.display):
+            detail = _pick_city_detail(client, global_ids, city)
+            if detail is not None:
                 return detail
         raise RuntimeError(f"Could not load a listing for city {city.key!r}")
 

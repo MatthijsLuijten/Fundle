@@ -52,10 +52,26 @@ def _is_valid_buy_listing(listing: Any, *, strict_existing: bool = False) -> boo
     return True
 
 
-_MAX_SEARCH_PAGE = 800
+# Funda put Firebase App Check in front of their search backend on 2026-08-18,
+# so every client.search() call now 401s with "no token provided" and no amount
+# of retrying helps (https://github.com/0xMH/pyfunda/issues/15). The
+# listing-detail endpoint is still open, and Funda global_ids are close enough
+# to sequential that we can discover listings by sampling ids directly instead.
+#
+# _ID_SEED is a range known to contain live listings; ids only ever grow, so we
+# probe upward from it to find the current frontier and sample the window below
+# that. Bump the seed occasionally to keep the probe short.
+_ID_SEED = 8_100_000
+_ID_PROBE_STEP = 25_000
+_ID_PROBE_BATCH = 8
+_ID_PROBE_LEVELS = 40
+# How far below the frontier to sample. Listings stay for sale for months, so a
+# narrow window would keep re-picking the same fresh listings.
+_ID_WINDOW = 500_000
+# Detail fetches per build. Empirically ~1 in 15 sampled ids is an available
+# buy listing, so this comfortably fills the bucket in a normal run.
+_SAMPLE_ATTEMPTS = 400
 _PAGE_ATTEMPTS = 8
-_DETAIL_PICK_LIMIT = 20
-_SEARCH_SORT = "newest"
 
 # Default price buckets. Format: min:max:weight (semicolon-separated).
 # Max can be empty for uncapped. Weights must sum to 1.0.
@@ -188,119 +204,85 @@ def _pick_price_bucket() -> tuple[int, int | None]:
     return random.choices(ranges, weights=weights, k=1)[0]
 
 
-def _search_candidates(
-    client: Any,
-    *,
-    min_price: int | None,
-    max_price: int | None,
-    page: int,
-) -> list[Any]:
-    filters: dict[str, Any] = {
-        "category": "buy",
-        "sort": _SEARCH_SORT,
-        "page": page,
-    }
-    if min_price is not None:
-        filters["min_price"] = min_price
-    if max_price is not None:
-        filters["max_price"] = max_price
-    from funda.exceptions import SearchError
+def _in_bucket(amount: int | None, min_price: int, max_price: int | None) -> bool:
+    if amount is None:
+        return False
+    return amount >= min_price and (max_price is None or amount < max_price)
 
+
+def _listing_exists(client: Any, global_id: int) -> Any | None:
     try:
-        results = client.search(**filters)
-    except SearchError as exc:
-        # Funda's Elasticsearch backend intermittently 400s ("all shards
-        # failed"), most often on deep pages. Treat it as an empty page so the
-        # caller retries a different (shallower) page instead of aborting the
-        # whole build.
-        msg = f"⚠️  Funda search failed on page {page}: {exc}"
-        logger.warning(msg)
-        print(msg, file=sys.stderr, flush=True)
-        return []
-    return [r for r in results if _is_valid_buy_listing(r)]
+        return client.listing(global_id)
+    except Exception:
+        # 404 is the common case (id never issued, or listing withdrawn); a
+        # transient error is equally fine to skip, the caller just samples on.
+        return None
 
 
-def _pick_listing_detail(
-    client: Any,
-    candidates: list[Any],
-    *,
-    min_price: int,
-    max_price: int | None,
-) -> Any | None:
-    """Fetch and validate listing detail, ensuring price is within range."""
-    shuffled = list(candidates)
-    random.shuffle(shuffled)
-    for pick in shuffled[: min(_DETAIL_PICK_LIMIT, len(shuffled))]:
-        try:
-            detail = client.listing(pick.global_id or pick.id)
-        except Exception:
+def _global_id_frontier(client: Any) -> int:
+    """Highest global_id band that still resolves, probed upward from _ID_SEED.
+
+    Funda hands out global_ids in ascending order, so everything below the
+    frontier is fair game and everything above it 404s. A band counts as live
+    if any of _ID_PROBE_BATCH random ids inside it resolves.
+    """
+    frontier = _ID_SEED
+    for _ in range(_ID_PROBE_LEVELS):
+        top = frontier + _ID_PROBE_STEP
+        if not any(
+            _listing_exists(client, random.randint(frontier, top)) is not None
+            for _ in range(_ID_PROBE_BATCH)
+        ):
+            return frontier
+        frontier = top
+    return frontier
+
+
+def _iter_sampled_listings(client: Any, attempts: int) -> Any:
+    """Yield valid, currently-available buy listings found by random id sampling."""
+    frontier = _global_id_frontier(client)
+    low = max(1, frontier - _ID_WINDOW)
+    for _ in range(attempts):
+        detail = _listing_exists(client, random.randint(low, frontier))
+        if detail is None:
+            continue
+        # Search used to return only live listings; sampling ids does not, so
+        # sold / under-offer listings have to be filtered out explicitly.
+        if getattr(detail, "status", None) != "available":
             continue
         if not _is_valid_buy_listing(detail, strict_existing=True):
             continue
-        amount = detail.price.amount
-        if not amount:
-            continue
-        if amount < min_price or (max_price is not None and amount >= max_price):
-            continue
-        return detail
-    return None
-
-
-def _candidates_from_random_page(
-    client: Any,
-    *,
-    min_price: int,
-    max_price: int | None,
-) -> list[Any]:
-    upper = _MAX_SEARCH_PAGE
-    for _ in range(_PAGE_ATTEMPTS):
-        page = random.randint(0, upper)
-        candidates = _search_candidates(client, min_price=min_price, max_price=max_price, page=page)
-        if candidates:
-            return candidates
-        if page == 0:
-            break
-        upper = min(upper, max(0, page - 1))
-    return []
+        yield detail
 
 
 def fetch_random_listing() -> Any:
     """Pick a buy listing"""
     from funda import Funda
 
-    primary = _pick_price_bucket()
-
-    fallbacks = [(lo, hi) for lo, hi, _ in _PRICE_BUCKETS if (lo, hi) != primary]
-    random.shuffle(fallbacks)
+    min_price, max_price = _pick_price_bucket()
+    floor = min(lo for lo, _, _ in _PRICE_BUCKETS)
+    off_bucket: list[Any] = []
 
     with Funda() as client:
-        for i, (min_price, max_price) in enumerate((primary, *fallbacks)):
-            for _ in range(_PAGE_ATTEMPTS):
-                candidates = _candidates_from_random_page(client, min_price=min_price, max_price=max_price)
-                if not candidates:
-                    continue
-                detail = _pick_listing_detail(client, candidates, min_price=min_price, max_price=max_price)
-                if detail is not None:
-                    if i > 0:
-                        max_price_str = f"€{max_price:,}" if max_price else "∞"
-                        msg = (
-                            f"⚠️  No listings in primary bucket, fell back to "
-                            f"€{min_price:,}–{max_price_str}. Consider adjusting PRICE_BUCKETS."
-                        )
-                        logger.warning(msg)
-                        print(msg, file=sys.stderr, flush=True)
-                    return detail
-
-        for _ in range(_PAGE_ATTEMPTS):
-            page = random.randint(0, _MAX_SEARCH_PAGE)
-            candidates = _search_candidates(client, min_price=None, max_price=None, page=page)
-            if not candidates:
-                continue
-            detail = _pick_listing_detail(client, candidates, min_price=100_000, max_price=None)
-            if detail is not None:
+        for detail in _iter_sampled_listings(client, _SAMPLE_ATTEMPTS):
+            if _in_bucket(detail.price.amount, min_price, max_price):
                 return detail
+            if _in_bucket(detail.price.amount, floor, None):
+                off_bucket.append(detail)
 
-        raise RuntimeError("Could not load existing-build listing from search results")
+    if off_bucket:
+        max_price_str = f"€{max_price:,}" if max_price else "∞"
+        msg = (
+            f"⚠️  No sampled listing in primary bucket €{min_price:,}–{max_price_str} "
+            f"after {_SAMPLE_ATTEMPTS} probes; falling back to one of "
+            f"{len(off_bucket)} other listings. Consider adjusting PRICE_BUCKETS."
+        )
+        logger.warning(msg)
+        print(msg, file=sys.stderr, flush=True)
+        return random.choice(off_bucket)
+
+    raise RuntimeError("Could not load existing-build listing from sampled global_ids")
+
 
 
 def build_live_puzzle(puzzle_date: date) -> tuple[int, int, dict]:

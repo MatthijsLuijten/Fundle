@@ -48,6 +48,15 @@ describe("cityMock offline backend", () => {
     expect(await mock.fetchCityPuzzle("nope")).toBeNull();
   });
 
+  it("serves one city of the day, and the same one on every call", async () => {
+    const first = await mock.fetchTodayCityPuzzle();
+    const second = await mock.fetchTodayCityPuzzle();
+
+    expect(first).not.toBeNull();
+    expect(first?.city).toBe(mock.mockCityForToday());
+    expect(second?.city).toBe(first?.city);
+  });
+
   it("keeps the first bid (first bid wins)", async () => {
     expect(await mock.submitCityBid(keyA, 500000)).toBe(500000);
     expect(await mock.submitCityBid(keyA, 999999)).toBe(500000);

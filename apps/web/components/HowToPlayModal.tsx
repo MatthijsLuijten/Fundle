@@ -19,7 +19,7 @@ const DAILY_STEPS = [
 ];
 
 const CITY_STEPS = [
-  <>Kies een stad. Je ziet <strong className="text-fundle-text">één woning</strong> die daar vandaag te koop staat.</>,
+  <>Elke dag één stad. Je ziet <strong className="text-fundle-text">één woning</strong> die daar vandaag te koop staat.</>,
   <>Plaats <strong className="text-fundle-text">één verzegeld bod</strong>. Je kunt het daarna niet meer aanpassen.</>,
   <>Om <strong className="text-fundle-text">18:00</strong> wordt de vraagprijs onthuld. Tot dan zie je niets van andere spelers.</>,
   <>Wie er het <strong className="text-fundle-text">dichtst bij</strong> zit, wint. Iedereen speelt die dag op dezelfde woning.</>,

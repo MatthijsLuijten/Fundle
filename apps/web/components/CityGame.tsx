@@ -2,13 +2,13 @@
 
 import { ArrowLeft, Clock } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchCityPuzzle, revealCity, submitCityBid } from "@/lib/cityApi";
+import { fetchTodayCityPuzzle, revealCity, submitCityBid } from "@/lib/cityApi";
 import type { CityPuzzleView, CityReveal } from "@/lib/cityData";
 import { fireWinConfetti } from "@/lib/confetti";
 import { MIN_GUESS_AMOUNT, parseAmount } from "@/lib/format";
 import { markCityModeSeen } from "@/lib/storage";
 import { AppFooter, AppHeader } from "./AppShell";
-import { CityPicker } from "./CityPicker";
+import { CityCard } from "./CityCard";
 import { CityResultCard } from "./CityResultCard";
 import { GameSkeleton } from "./GameSkeleton";
 import { GuessInput } from "./GuessInput";
@@ -25,10 +25,12 @@ function closeLabel(iso: string): string {
 }
 
 export function CityGame() {
-  const [city, setCity] = useState<string | null>(null);
+  // City mode is one city per day, so there is nothing to pick: load today's
+  // puzzle up front and let the start screen decide when to show it.
+  const [opened, setOpened] = useState(false);
   const [view, setView] = useState<CityPuzzleView | null>(null);
   const [reveal, setReveal] = useState<CityReveal | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -42,13 +44,13 @@ export function CityGame() {
     markCityModeSeen();
   }, []);
 
-  const load = useCallback(async (target: string) => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     setNotFound(false);
     confettiRef.current = false;
     try {
-      const v = await fetchCityPuzzle(target);
+      const v = await fetchTodayCityPuzzle();
       if (!v) {
         setView(null);
         setReveal(null);
@@ -56,17 +58,17 @@ export function CityGame() {
         return;
       }
       setView(v);
-      setReveal(await revealCity(target));
+      setReveal(await revealCity(v.city));
     } catch {
-      setError("Kon deze stad niet laden. Probeer het later opnieuw.");
+      setError("Kon de stad van vandaag niet laden. Probeer het later opnieuw.");
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (city) load(city);
-  }, [city, load]);
+    load();
+  }, [load]);
 
   useEffect(() => {
     if (reveal && !reveal.open && reveal.won && !confettiRef.current) {
@@ -81,7 +83,7 @@ export function CityGame() {
   }
 
   async function handleBid() {
-    if (!city) return;
+    if (!view) return;
     const amount = parseAmount(input);
     if (amount == null || amount < MIN_GUESS_AMOUNT) {
       setError("Voer een geldig bod in (min. €1.000).");
@@ -91,8 +93,8 @@ export function CityGame() {
     setSubmitting(true);
     setError(null);
     try {
-      await submitCityBid(city, amount);
-      setReveal(await revealCity(city));
+      await submitCityBid(view.city, amount);
+      setReveal(await revealCity(view.city));
       setInput("");
     } catch {
       setError("Bod plaatsen mislukt. Misschien is het bieden gesloten.");
@@ -101,10 +103,8 @@ export function CityGame() {
     }
   }
 
-  function reset() {
-    setCity(null);
-    setView(null);
-    setReveal(null);
+  function close() {
+    setOpened(false);
     setError(null);
     setInput("");
   }
@@ -114,9 +114,10 @@ export function CityGame() {
   const bidding = reveal != null && reveal.open && !hasBid;
   const waiting = reveal != null && reveal.open && hasBid;
 
-  const subtitle = view
-    ? `${view.cityDisplay}${revealed ? " · Uitslag" : bidding ? " · Bieden" : " · Bod geplaatst"}`
-    : "Steden";
+  const subtitle =
+    opened && view
+      ? `${view.cityDisplay}${revealed ? " · Uitslag" : bidding ? " · Bieden" : " · Bod geplaatst"}`
+      : "Steden";
 
   return (
     <>
@@ -129,32 +130,38 @@ export function CityGame() {
         />
 
         <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-5">
-          {!city && <CityPicker onSelect={setCity} />}
+          {!opened && loading && <GameSkeleton />}
 
-          {city && (
+          {!opened && !loading && view && (
+            <CityCard
+              city={view.city}
+              display={view.cityDisplay}
+              onOpen={() => setOpened(true)}
+            />
+          )}
+
+          {opened && (
             <button
               type="button"
-              onClick={reset}
+              onClick={close}
               className="btn-ghost inline-flex w-fit items-center gap-1.5 px-3 py-2 text-sm text-fundle-muted hover:text-fundle-text"
             >
-              <ArrowLeft className="h-4 w-4" /> Andere stad
+              <ArrowLeft className="h-4 w-4" /> Terug
             </button>
           )}
 
-          {city && loading && <GameSkeleton />}
-
-          {city && !loading && notFound && (
+          {!loading && notFound && (
             <div className="surface p-6 text-center text-sm text-fundle-muted">
-              Er is vandaag nog geen woning voor deze stad. Kom later terug.
+              Er is vandaag nog geen woning. Kom later terug.
             </div>
           )}
 
-          {city && !loading && error && !view && (
+          {!loading && error && !view && (
             <div className="surface p-6 text-center">
               <p className="text-sm text-red-600">{error}</p>
               <button
                 type="button"
-                onClick={() => load(city)}
+                onClick={() => load()}
                 className="btn-primary mt-4 px-5 py-2.5 text-sm"
               >
                 Opnieuw proberen
@@ -162,7 +169,7 @@ export function CityGame() {
             </div>
           )}
 
-          {city && !loading && view && (
+          {opened && !loading && view && (
             <>
               <PhotoGallery urls={view.photos} />
 

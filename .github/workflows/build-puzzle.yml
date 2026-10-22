@@ -10,9 +10,10 @@ on:
     # 0003_evening_prebuild_cron.sql): a workflow_dispatch in the Amsterdam
     # evening plus a retry slot 2.5h later. This GitHub morning cron is an
     # independent safety net in case that path breaks (expired PAT, Supabase
-    # hiccup) — note GitHub may auto-disable it after 60 days without repo
-    # activity, which is why it is the net and not the primary. Everything is
-    # idempotent, so overlapping runs are cheap no-ops.
+    # hiccup). GitHub auto-disables scheduled workflows after 60 days without
+    # repo activity, which also blocks the pg_cron dispatch; the "Keep
+    # workflow enabled" step below prevents that. Everything is idempotent,
+    # so overlapping runs are cheap no-ops.
     - cron: "5 6 * * *"
   workflow_dispatch:
     inputs:
@@ -36,8 +37,21 @@ jobs:
     # fail every morning on missing secrets. Manual dispatch still works
     # anywhere, so a fork with its own secrets can run it on demand.
     if: github.event_name != 'schedule' || github.repository == 'MatthijsLuijten/Fundle'
+    permissions:
+      contents: read
+      actions: write
     steps:
       - uses: actions/checkout@v5
+
+      # GitHub disables scheduled workflows after 60 days without repo
+      # activity, and a disabled workflow also rejects the pg_cron
+      # workflow_dispatch, so both triggers die at once (happened 2026-10-21).
+      # Re-enabling via the API resets that inactivity timer. Runs before the
+      # precheck so no-op days still count.
+      - name: Keep workflow enabled
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/build-puzzle.yml/enable"
 
       # Cheap early-exit so no-op scheduled runs don't bother installing the
       # toolchain. This only short-circuits; the build step below does its own

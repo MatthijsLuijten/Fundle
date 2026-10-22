@@ -31,8 +31,18 @@ jobs:
     # See build-puzzle.yml: only the upstream repo has the SUPABASE_* secrets,
     # so forks skip the inherited schedule instead of failing on it.
     if: github.event_name != 'schedule' || github.repository == 'MatthijsLuijten/Fundle'
+    permissions:
+      contents: read
+      actions: write
     steps:
       - uses: actions/checkout@v5
+
+      # See build-puzzle.yml: stops GitHub's 60-day inactivity auto-disable,
+      # which would also block the pg_cron dispatch.
+      - name: Keep workflow enabled
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/build-city-puzzles.yml/enable"
 
       # Cheap early-exit: skip the toolchain install when all cities already
       # have today's puzzle (10 = number of cities in CITY_MODE_CITIES; keep in
